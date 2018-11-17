@@ -113,10 +113,10 @@ The problem may be that I do not know anything about programming.
 ;;=>
 ;;[{:a 1, :b 2, :date #object[org.joda.time.DateTime 0x30dcefc9 "2018-11-10T00:00:00.000Z"]}
 ;; {:date #object[org.joda.time.DateTime 0x11eab30c "2018-11-11T00:00:00.000Z"]}
-;; :date #object[org.joda.time.DateTime 0x500116ff "2018-11-12T00:00:00.000Z"]}
-;; :date #object[org.joda.time.DateTime 0x3f45f380 "2018-11-13T00:00:00.000Z"]}
-;; :date #object[org.joda.time.DateTime 0x68b0e106 "2018-11-14T00:00:00.000Z"]}
-;; :a 1, :b 2, :date #object[org.joda.time.DateTime 0x2c865dcf "2018-11-15T00:00:00.000Z"]}]
+;;  :date #object[org.joda.time.DateTime 0x500116ff "2018-11-12T00:00:00.000Z"]}
+;;  :date #object[org.joda.time.DateTime 0x3f45f380 "2018-11-13T00:00:00.000Z"]}
+;;  :date #object[org.joda.time.DateTime 0x68b0e106 "2018-11-14T00:00:00.000Z"]}
+;;  :a 1, :b 2, :date #object[org.joda.time.DateTime 0x2c865dcf "2018-11-15T00:00:00.000Z"]}]
  
 (let [data [{:a 1 :b 2 :date (dt/date-time 2018 11 10)} {:a 1 :b 2 :date (dt/date-time 2018 11 15)}]]
   (into [] (df/asfreq [:d 1] :fill [:a :b]) data))
