@@ -165,11 +165,6 @@
 (defn dropna
   ([] (comp (filter identity) (keep drop-nil))))
 
-(require '[ribelo.wombat.dataframe :as df])
-(require '[clj-time.core :as dt])
-(let [data [{:a 1 :b 2 :date (dt/date-time 2018 11 10)} {:a 1 :b 2 :date (dt/date-time 2018 11 15)}]]
-  (into [] (asfreq [:d 1] :fill [:a :b]) data))
-
 
 
 
