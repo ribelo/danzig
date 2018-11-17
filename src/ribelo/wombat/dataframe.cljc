@@ -1,4 +1,5 @@
 (ns ribelo.wombat.dataframe
+  (:refer-clojure :exclude [set replace])
   (:require [taoensso.encore :as e]
             [net.cgrand.xforms :as x]
             [clj-time.core :as dt]
@@ -33,7 +34,7 @@
             ([acc] (rf acc))
             ([acc x]
              (if-not @lst
-               (do (vreset! lst x)
+               (do (vreset! lst (select-keys x fill'))
                    (rf acc x))
                (let [last-date (dt/plus (get @lst key) freq')
                      date (get x key)
@@ -48,6 +49,7 @@
   (let [pairs' (partition 2 m)]
     (map (fn [elem]
            (reduce (fn [acc [key [pred value]]]
+                     (println key (get acc key))
                      (if (pred (get acc key)) (assoc elem key value) elem)) elem pairs')))))
 
 
@@ -67,12 +69,14 @@
   (map #(select-keys % ks)))
 
 
-(defn head [n]
-  (take n))
+(defn head
+  ([] (head 5))
+  ([n] (take n)))
 
 
-(defn tail [n]
-  (x/take-last n))
+(defn tail
+  ([] (tail 5))
+  ([n] (x/take-last n)))
 
 
 (def describe
@@ -104,8 +108,16 @@
 
 
 (defprotocol Dataframe
+  (loc [k])
   (iloc [i] [x y])
-  (set! [i val] [x y val]))
+  (set [i val] [x y val])
+  (fill [m] [k v])
+  (replace [m] [pred v] [k preds v]))
+
+
+(extend-type clojure.lang.Fn
+  Dataframe
+  (replace [pred v] (map (fn [elem] (if (pred elem) v elem)))))
 
 
 (extend-type java.lang.Long
@@ -113,38 +125,50 @@
   (drop-nil [val] val)
 
   Dataframe
-  (iloc [i] (comp (drop i) (take 1)))
+  (iloc [i] (println i))
   (iloc [x y] (scomp (when x (drop x)) (when y (take (- y x)))))
-  (set! [x y] (scomp (when x (drop x)) (when y (take (- y x)))))
-  (set! [x y val] (map-indexed (fn [idx m] (if (and (>= idx x)
-                                                    (< idx y))
-                                             val m)))))
-
+  (set [x v] (map-indexed (fn [idx m] (if (= x idx) v m))))
+  (set [x y v] (map-indexed (fn [idx m] (if (and (>= idx x)
+                                                 (< idx y))
+                                          v m)))))
 
 (extend-type java.util.Collection
   DropNil
   (drop-nil [coll] (into [] (filter identity) coll))
 
   Dataframe
+  (loc [coll] (map #(select-keys % coll)))
   (iloc [coll] (keep-indexed (fn [idx v] (when ((clojure.core/set coll) idx) v))))
-  (set! [coll val] (map-indexed (fn [idx m] (if ((clojure.core/set coll) idx) val m)))))
+  (set [coll val] (map-indexed (fn [idx m] (if ((clojure.core/set coll) idx) val m))))
+  (fill [ks v] (map (fn [m] (reduce (fn [acc k] (assoc acc k v)) m ks))))
+  (replace [preds v] (map (fn [elem] (if ((apply every-pred preds) elem) v elem)))))
 
 
 (extend-type clojure.lang.PersistentArrayMap
   DropNil
-  (drop-nil [m] (if (every? identity (vals m)) m nil)))
+  (drop-nil [m] (if (every? identity (vals m)) m nil))
+
+  Dataframe
+  (fill [m] (map (fn [elem] (reduce (fn [acc [k v]] (assoc acc k v)) elem m)))))
+
+
+(extend-type clojure.lang.Keyword
+  Dataframe
+  (loc [k] (map k))
+  (set [k v] (map #(assoc % k v)))
+  (fill [k v] (map #(assoc % k v)))
+  (replace [k pred v]
+    (map (fn [elem] (if (pred (get elem k))
+                      (assoc elem k v) elem)))))
 
 
 (defn dropna
   ([] (comp (filter identity) (keep drop-nil))))
 
-
-(let [data (map (fn [i] {:a i :b (inc i)}) (range 100))]
-  (into []
-    describe
-    data)
-  )
-
+(require '[ribelo.wombat.dataframe :as df])
+(require '[clj-time.core :as dt])
+(let [data [{:a 1 :b 2 :date (dt/date-time 2018 11 10)} {:a 1 :b 2 :date (dt/date-time 2018 11 15)}]]
+  (into [] (asfreq [:d 1] :fill [:a :b]) data))
 
 
 
