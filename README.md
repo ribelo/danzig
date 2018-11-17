@@ -1,6 +1,6 @@
 # ribelo.wombat
 
-A easy-to-use data structures and data analysis tools for the CLojure programming language.
+A easy-to-use data structures and data analysis tools for the Clojure programming language.
 Wombat pretends to be clojure pandas...but it will never happen.
 
 Created mainly to learn how to use transducers, and and bring the basic functionality 
