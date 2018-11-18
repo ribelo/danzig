@@ -18,7 +18,7 @@ The problem may be that I do not know anything about programming.
 ;;=> [8 5 6 6 4 6 7 1 5 6]
 
 (let [data (map (fn [_] {:a (rand-int 10) :b (rand-int 10)}) (range 10))]
-  (into [] (comp (df/loc [:a :b] (df/head)) data))
+  (into [] (comp (df/loc [:a :b]) (df/head)) data)
   
 ;;=> [{:a 1, :b 4} {:a 3, :b 5} {:a 6, :b 2} {:a 1, :b 3} {:a 8, :b 8}]
 
