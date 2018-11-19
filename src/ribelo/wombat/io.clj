@@ -12,41 +12,34 @@
                           :double #(Double/parseDouble %)})
 
 
-(defn read-csv
-  ([path & {:keys [sep header-row names encoding keywordize-headers? parse]
-            :or   {sep                 ","
-                   encoding            "utf-8"
-                   keywordize-headers? false}
-            :as   params}]
-   (apply read-csv path nil params))
-  ([path & {:keys [sep header-row names encoding keywordize-headers? parse]
-            :or   {sep                 ","
-                   encoding            "utf-8"
-                   keywordize-headers? false}}]
-   (->> (xio/lines-in path :encoding encoding)
-        (into []
-              (comp
-                (split-sep sep)
-                (x/transjuxt
-                  (cond-> {:xs (comp (if header-row (drop (inc header-row)) (map identity)) (x/into []))}
-                          (and (not names) header-row)
-                          (merge {:headers (comp (drop (dec header-row))
-                                                 (take 1)
-                                                 (map (if keywordize-headers? keyword identity)))})))
-                (mapcat (fn [{:keys [xs headers]
-                              :or   {headers names}}]
-                          (into []
-                                (if headers
-                                  (map (fn [vals] (e/filter-keys identity (zipmap headers vals))))
-                                  (map identity))
-                                xs)))
-                (map (if parse
-                       (fn [m]
-                         (merge m
-                                (reduce (fn [acc [k f]]
-                                          (update acc k (dtype->fn f)))
-                                        m parse)))
-                       identity)))))))
+(defn read-csv [path & {:keys [sep header-row names encoding keywordize-headers? parse]
+                        :or   {sep                 ","
+                               encoding            "utf-8"
+                               keywordize-headers? false}}]
+  (->> (xio/lines-in path :encoding encoding)
+       (into []
+             (comp
+               (split-sep sep)
+               (x/transjuxt
+                 (cond-> {:xs (comp (if header-row (drop (inc header-row)) (map identity)) (x/into []))}
+                         (and (not names) header-row)
+                         (merge {:headers (comp (drop (dec header-row))
+                                                (take 1)
+                                                (map (if keywordize-headers? keyword identity)))})))
+               (mapcat (fn [{:keys [xs headers]
+                             :or   {headers names}}]
+                         (into []
+                               (if headers
+                                 (map (fn [vals] (e/filter-keys identity (zipmap headers vals))))
+                                 (map identity))
+                               xs)))
+               (map (if parse
+                      (fn [m]
+                        (merge m
+                               (reduce (fn [acc [k f]]
+                                         (update acc k (dtype->fn f)))
+                                       m parse)))
+                      identity))))))
 
 
 (defn to-csv [data path & {:keys [sep names header? index? index-label encoding parse]
