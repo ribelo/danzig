@@ -2,7 +2,8 @@
   (:require [clojure.java.io :as io]
             [taoensso.encore :as e]
             [net.cgrand.xforms :as x]
-            [net.cgrand.xforms.io :as xio]))
+            [net.cgrand.xforms.io :as xio]
+            [ribelo.wombat.utils :refer :all]))
 
 
 (defn- split-sep [sep] (map #(clojure.string/split % (re-pattern sep))))
@@ -12,34 +13,41 @@
 
 
 (defn read-csv
-  [path & {:keys [sep header-row names encoding keywordize-headers? parse]
-           :or   {sep                 ","
-                  encoding            "utf-8"
-                  keywordize-headers? false}}]
-  (->> (xio/lines-in path :encoding encoding)
-       (into []
-             (comp
-               (split-sep sep)
-               (x/transjuxt
-                 (cond-> {:xs (comp (if header-row (drop (inc header-row)) (map identity)) (x/into []))}
-                         (and (not names) header-row)
-                         (merge {:headers (comp (drop (dec header-row))
-                                                (take 1)
-                                                (map (if keywordize-headers? keyword identity)))})))
-               (mapcat (fn [{:keys [xs headers]
-                             :or   {headers names}}]
-                         (into []
-                               (if headers
-                                 (map (fn [vals] (e/filter-keys identity (zipmap headers vals))))
-                                 (map identity))
-                               xs)))
-               (map (if parse
-                      (fn [m]
-                        (merge m
-                               (reduce (fn [acc [k f]]
-                                         (update acc k (dtype->fn f)))
-                                       m parse)))
-                      identity))))))
+  ([path & {:keys [sep header-row names encoding keywordize-headers? parse]
+            :or   {sep                 ","
+                   encoding            "utf-8"
+                   keywordize-headers? false}
+            :as   params}]
+   (apply read-csv path nil params))
+  ([path xf & {:keys [sep header-row names encoding keywordize-headers? parse]
+               :or   {sep                 ","
+                      encoding            "utf-8"
+                      keywordize-headers? false}}]
+   (->> (xio/lines-in path :encoding encoding)
+        (into []
+              (scomp
+                (split-sep sep)
+                (x/transjuxt
+                  (cond-> {:xs (comp (if header-row (drop (inc header-row)) (map identity)) (x/into []))}
+                          (and (not names) header-row)
+                          (merge {:headers (comp (drop (dec header-row))
+                                                 (take 1)
+                                                 (map (if keywordize-headers? keyword identity)))})))
+                (mapcat (fn [{:keys [xs headers]
+                              :or   {headers names}}]
+                          (into []
+                                (if headers
+                                  (map (fn [vals] (e/filter-keys identity (zipmap headers vals))))
+                                  (map identity))
+                                xs)))
+                (map (if parse
+                       (fn [m]
+                         (merge m
+                                (reduce (fn [acc [k f]]
+                                          (update acc k (dtype->fn f)))
+                                        m parse)))
+                       identity))
+                xf)))))
 
 
 (defn to-csv [data path & {:keys [sep names header? index? index-label encoding parse]
@@ -61,12 +69,5 @@
       (map #(clojure.string/join sep %)))
     data
     :encoding encoding))
-
-
-
-(def data (read-csv "/home/ribelo/s3-dane/F01450_StoreSale_2018_11_10"
-                    :sep ";" :encoding "cp1250"
-                    :names [nil :date :ean nil :id :name nil nil :category :qty nil :sales nil :profit nil nil nil :unit :vat nil nil :weight :category-id]
-                    :header-row 0))
 
 
