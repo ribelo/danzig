@@ -267,7 +267,7 @@
 
 
 (defn where [& filters]
-  (apply scomp (map #(filter %) filters)))
+  (apply comp (map #(filter %) (remove nil? filters))))
 
 
 (defn window [n]
