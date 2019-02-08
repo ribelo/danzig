@@ -9,10 +9,12 @@
 (defn- split-sep [sep] (map #(clojure.string/split % (re-pattern sep))))
 
 (def ^:private dtype->fn {:long   #(Long/parseLong %)
-                          :double #(Double/parseDouble %)})
+                          :double #(Double/parseDouble %)
+                          nil     identity})
 
 
-(defn read-csv [path & {:keys [sep header-row names encoding keywordize-headers? parse]
+(defn read-csv [path & {:keys [sep header-row names encoding keywordize-headers?
+                               parse columns]
                         :or   {sep                 ","
                                encoding            "utf-8"
                                keywordize-headers? false}}]
@@ -33,6 +35,16 @@
                                  (map (fn [vals] (e/filter-keys identity (zipmap headers vals))))
                                  (map identity))
                                xs)))
+               (map (if columns
+                      (fn [arr]
+                        (reduce
+                          (fn [acc [column val]]
+                            (if column
+                              (assoc acc column val)
+                              acc))
+                          {}
+                          (map vector columns arr)))
+                      identity))
                (map (if parse
                       (fn [m]
                         (merge m
@@ -40,6 +52,12 @@
                                          (update acc k (dtype->fn f)))
                                        m parse)))
                       identity))))))
+
+(map vector (range) [:a :b :c])
+
+(first (read-csv "/home/ribelo/s1-dane/F01451_StoreSale_2018_02_21"
+                 :sep ";"
+                 :columns [:id :date :ean nil nil :name nil nil nil :qty]))
 
 
 (defn to-csv [data path & {:keys [sep names header? index? index-label encoding parse]
