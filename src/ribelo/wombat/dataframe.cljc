@@ -9,6 +9,7 @@
             [ribelo.wombat.aggregate :as agg]
             [ribelo.wombat.utils :refer :all]))
 
+
 (derive java.lang.Number ::value)
 (derive java.lang.String ::value)
 (derive java.util.Collection ::collection)
@@ -23,9 +24,27 @@
 (defmulti row (fn [x y] [(class x) (class y)]))
 
 
-(defmethod row [java.util.Collections java.util.Collections]
+(defmethod row [java.util.Collection java.util.Collection]
   [ks vs]
   (zipmap ks vs))
+
+
+(defmulti where (fn [x & [y]] [(class x) (class y)]))
+
+
+(defmethod where [clojure.lang.Fn nil]
+  [pred & _]
+  (filter pred))
+
+
+(defmethod where [clojure.lang.Keyword clojure.lang.Fn]
+  [k & [pred]]
+  (filter #(pred (get % k))))
+
+
+(defmethod where [clojure.lang.Keyword ::any]
+  [k & [pred]]
+  (filter #(= pred (get % k))))
 
 
 (defmulti loc (fn [x & [y]] [(class x) (class y)]))
@@ -46,7 +65,6 @@
   (comp (loc x) (iloc y)))
 
 
-
 (defmulti iloc (fn [x & [y]] [(class x) (class y)]))
 
 
@@ -57,7 +75,7 @@
 
 (defmethod iloc [java.lang.Number java.lang.Number]
   [x & [y & args]]
-  (comp (clojure.core/drop (dec x)) (take (inc (- y x)))))
+  (comp (clojure.core/drop (dec x)) (take (- y x))))
 
 
 (defmethod iloc [java.util.Collection nil]
@@ -116,7 +134,7 @@
   (map (fn [m] (if (pred (get m k)) (assoc m k v) m))))
 
 
-(defmulti drop (fn [x & [y & [z]]] [(class x) (class y) (class y)]))
+(defmulti drop (fn [x & [y & z]] [(class x) (class y) (class z)]))
 
 
 (defmethod drop [java.lang.Number nil nil]
@@ -144,7 +162,7 @@
   (map #(dissoc % x)))
 
 
-(defmethod drop [clojure.lang.Keyword clojure.lang.Keyword false]
+(defmethod drop [clojure.lang.Keyword clojure.lang.Keyword nil]
   [x & [y]]
   (map #(dissoc % x y)))
 
@@ -154,7 +172,7 @@
   (map #(apply dissoc % (conj z y x))))
 
 
-(defmethod drop [clojure.lang.Keyword clojure.lang.Fn clojure.lang.Fn]
+(defmethod drop [clojure.lang.Keyword clojure.lang.Fn nil]
   [k & [pred & _]]
   (remove #(pred (get % k))))
 
@@ -206,9 +224,34 @@
                                 % ks) xs)))))
 
 
-(defn group-by [f m]
+(defmulti group-by (fn [f m] [(class f) (class m)]))
+
+
+(defmethod group-by [clojure.lang.Fn java.util.Map]
+  [f m]
   (comp
     (x/by-key f (agg/aggregate m))
+    (map second)))
+
+
+(defmethod group-by [clojure.lang.Keyword java.util.Map]
+  [k m]
+  (comp
+    (x/by-key k (agg/aggregate (assoc m k :first)))
+    (map second)))
+
+
+(defmethod group-by [clojure.lang.Keyword clojure.lang.Fn]
+  [k f]
+  (x/by-key k f))
+
+
+(defmethod group-by [java.util.Collection java.util.Map]
+  [ks m]
+  (comp
+    (x/by-key (apply juxt ks) (agg/aggregate
+                                (reduce (fn [acc k]
+                                          (assoc acc k :first)) m ks)))
     (map second)))
 
 
@@ -266,12 +309,14 @@
 ;                     (if (pred (get acc key)) (assoc elem key value) elem)) elem pairs')))))
 
 
-(defn where [& filters]
-  (apply comp (map #(filter %) (remove nil? filters))))
 
-
-(defn window [n]
-  (x/partition n 1))
+(defn window
+  ([n]
+   (x/partition n 1))
+  ([n step]
+   (x/partition n step))
+  ([n step xform]
+   (x/partition n step xform)))
 
 
 (def columns
@@ -293,24 +338,27 @@
 
 
 (def describe
-  (comp (x/transjuxt {:ks columns
-                      :xs (x/into [])})
-        (mapcat (fn [{:keys [ks xs]}]
-                  (into {}
-                    (map (fn [k]
-                           (x/transjuxt
-                             {k (x/transjuxt {:count (agg/count k)
-                                              :mean  (agg/mean k)
-                                              :std   (agg/std k)
-                                              :min   (agg/min k)
-                                              :25%   (agg/quantile :a 0.25)
-                                              :50%   (agg/quantile :a 0.5)
-                                              :75%   (agg/quantile :a 0.75)
-                                              :max   (agg/max :a)
-                                              })}
-                             xs))
-                         ks))))))
+  (comp
+    (x/transjuxt {:ks columns
+                  :xs (x/into [])})
+    (mapcat (fn [{:keys [ks xs]}]
+              (into {}
+                (map (fn [k]
+                       (x/transjuxt
+                         {k (x/transjuxt {:count (agg/count k)
+                                          :mean  (agg/mean k)
+                                          :std   (agg/std k)
+                                          :min   (agg/min k)
+                                          :25%   (agg/quantile k 0.25)
+                                          :50%   (agg/quantile k 0.5)
+                                          :75%   (agg/quantile k 0.75)
+                                          :max   (agg/max k)})}
+                         xs))
+                     ks))))))
 
 
-(defn sort-by [k]
-  (x/sort-by k))
+(defn sort-by
+  ([k]
+   (x/sort-by k))
+  ([k f]
+    (x/sort-by k f)))

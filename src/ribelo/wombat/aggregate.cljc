@@ -77,7 +77,6 @@
   (when (#{:first :last :min :max :count :sum :mean :median
            :std :quantile :percentile :iqr :variance
            :covariance :kurtosis :mode} k)
-    (println (symbol "ribelo.wombat.aggregate" (name k)))
     (resolve (symbol "ribelo.wombat.aggregate" (name k)))))
 
 
@@ -89,8 +88,6 @@
                            (fn? f) f
                            (keyword? f) ((agg->fn f) k))]
                   (assoc acc k f'))) {} pairs))))
-(agg->fn :sum)
-(into [] (aggregate {:a :mean}) [{:a 1} {:a 2}])
 
 
 
