@@ -4,7 +4,8 @@
             [net.cgrand.xforms :as x]
             [net.cgrand.xforms.io :as xio]
             [clj-time.coerce :as dtc]
-            [ribelo.wombat.utils :refer :all]))
+            [ribelo.wombat.utils :refer :all])
+  (:import (clojure.lang Keyword Fn)))
 
 
 (defn- split-sep [sep] (map #(clojure.string/split % (re-pattern sep))))
@@ -13,6 +14,11 @@
                           :double #(Double/parseDouble %)
                           :date   dtc/from-string
                           nil     identity})
+
+
+(defmulti parse-dtype (fn [val] (class val)))
+(defmethod parse-dtype Keyword [key] (dtype->fn key))
+(defmethod parse-dtype Fn [f] f)
 
 
 (defn read-csv [path & {:keys [sep header-row names encoding keywordize-headers?
@@ -50,8 +56,8 @@
                (map (if parse
                       (fn [m]
                         (merge m
-                               (reduce (fn [acc [k f]]
-                                         (update acc k (dtype->fn f)))
+                               (reduce (fn [acc [k v]]
+                                         (update acc k (parse-dtype v)))
                                        m parse)))
                       identity))))))
 
