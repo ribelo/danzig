@@ -3,6 +3,7 @@
             [taoensso.encore :as e]
             [net.cgrand.xforms :as x]
             [net.cgrand.xforms.io :as xio]
+            [clj-time.coerce :as dtc]
             [ribelo.wombat.utils :refer :all]))
 
 
@@ -10,6 +11,7 @@
 
 (def ^:private dtype->fn {:long   #(Long/parseLong %)
                           :double #(Double/parseDouble %)
+                          :date   dtc/from-string
                           nil     identity})
 
 
@@ -52,12 +54,6 @@
                                          (update acc k (dtype->fn f)))
                                        m parse)))
                       identity))))))
-
-(map vector (range) [:a :b :c])
-
-(first (read-csv "/home/ribelo/s1-dane/F01451_StoreSale_2018_02_21"
-                 :sep ";"
-                 :columns [:id :date :ean nil nil :name nil nil nil :qty]))
 
 
 (defn to-csv [data path & {:keys [sep names header? index? index-label encoding parse]
