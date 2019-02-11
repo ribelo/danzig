@@ -1,9 +1,9 @@
 # ribelo.wombat
 
-A easy-to-use data structures and data analysis tools for the CLojure programming language.
+A easy-to-use data structures and data analysis tools for the Clojure programming language.
 Wombat pretends to be clojure pandas...but it will never happen.
 
-Created mainly to learn how to use transducers, and and bring the basic functionality 
+Created mainly to learn how to use transducers, and bring the basic functionality 
 of python pandas, which I use on a daily basis.
 The problem may be that I do not know anything about programming.
 
@@ -18,7 +18,7 @@ The problem may be that I do not know anything about programming.
 ;;=> [8 5 6 6 4 6 7 1 5 6]
 
 (let [data (map (fn [_] {:a (rand-int 10) :b (rand-int 10)}) (range 10))]
-  (into [] (comp (df/loc [:a :b] (df/head)) data))
+  (into [] (comp (df/loc [:a :b]) (df/head)) data)
   
 ;;=> [{:a 1, :b 4} {:a 3, :b 5} {:a 6, :b 2} {:a 1, :b 3} {:a 8, :b 8}]
 
@@ -113,10 +113,10 @@ The problem may be that I do not know anything about programming.
 ;;=>
 ;;[{:a 1, :b 2, :date #object[org.joda.time.DateTime 0x30dcefc9 "2018-11-10T00:00:00.000Z"]}
 ;; {:date #object[org.joda.time.DateTime 0x11eab30c "2018-11-11T00:00:00.000Z"]}
-;; :date #object[org.joda.time.DateTime 0x500116ff "2018-11-12T00:00:00.000Z"]}
-;; :date #object[org.joda.time.DateTime 0x3f45f380 "2018-11-13T00:00:00.000Z"]}
-;; :date #object[org.joda.time.DateTime 0x68b0e106 "2018-11-14T00:00:00.000Z"]}
-;; :a 1, :b 2, :date #object[org.joda.time.DateTime 0x2c865dcf "2018-11-15T00:00:00.000Z"]}]
+;;  :date #object[org.joda.time.DateTime 0x500116ff "2018-11-12T00:00:00.000Z"]}
+;;  :date #object[org.joda.time.DateTime 0x3f45f380 "2018-11-13T00:00:00.000Z"]}
+;;  :date #object[org.joda.time.DateTime 0x68b0e106 "2018-11-14T00:00:00.000Z"]}
+;;  :a 1, :b 2, :date #object[org.joda.time.DateTime 0x2c865dcf "2018-11-15T00:00:00.000Z"]}]
  
 (let [data [{:a 1 :b 2 :date (dt/date-time 2018 11 10)} {:a 1 :b 2 :date (dt/date-time 2018 11 15)}]]
   (into [] (df/asfreq [:d 1] :fill [:a :b]) data))
