@@ -10,9 +10,9 @@
 
 (defn- split-sep [sep] (map #(clojure.string/split % (re-pattern sep))))
 
-(def ^:private dtype->fn {:long   #(Long/parseLong %)
-                          :double #(Double/parseDouble %)
-                          :date   dtc/from-string
+(def ^:private dtype->fn {:long   #(Long/parseLong ^String %)
+                          :double #(Double/parseDouble ^String %)
+                          :date   #(dtc/from-string ^String %)
                           nil     identity})
 
 
