@@ -4,7 +4,9 @@
             [net.cgrand.xforms :as x]
             [net.cgrand.xforms.io :as xio]
             [clj-time.coerce :as dtc]
-            [ribelo.wombat.utils :refer :all])
+            [ribelo.wombat.utils :refer :all]
+            #?(:cljs ["fs" :as fs])
+            #?(:cljs ["iconv-lite" :as ic]))
   (:import (clojure.lang Keyword Fn)))
 
 
@@ -26,7 +28,9 @@
                         :or   {sep                 ","
                                encoding            "utf-8"
                                keywordize-headers? false}}]
-  (->> (xio/lines-in path :encoding encoding)
+  (->> #?(:clj  (xio/lines-in path :encoding encoding)
+          :cljs (-> (.readFileSync ^js fs path)
+                    (.decode ^js ic encoding)))
        (into []
              (comp
                (split-sep sep)
