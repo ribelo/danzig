@@ -1,0 +1,8 @@
+{
+"version":3,
+"file":"goog.promise.thenable.js",
+"lineCount":51,
+"mappings":"AAcAA,IAAAC,QAAA,CAAa,eAAb,CAAA;AAGA;;;AAAAD,IAAAE,eAAA,CAAoB,cAApB,CAAA;AAYA;;;;;AAAAF,IAAAG,SAAA,GAAgBC,QAAQ,EAAG;CAA3B;AA6CA;;;;;;;;AAAAJ,IAAAG,SAAAE,UAAAC,KAAA,GAA+BC,QAAQ,CACnCC,eADmC,EAClBC,cADkB,EACFC,WADE,CACW;CADlD;AAYA,cAAAV,IAAAG,SAAAQ,oBAAA,GAAoC,gBAApC;AAaA;;;AAAAX,IAAAG,SAAAS,kBAAA,GAAkCC,QAAQ,CAACC,IAAD,CAAO;AAC/C,MAAIC,QAAJ;AACED,QAAAT,UAAA,CAAeL,IAAAG,SAAAQ,oBAAf,CAAA,GAAoD,IAApD;AADF;AAIEG,QAAAT,UAAAW,eAAA,GAAgC,IAAhC;AAJF;AAD+C,CAAjD;AAeA;;;;AAAAhB,IAAAG,SAAAc,gBAAA,GAAgCC,QAAQ,CAACC,MAAD,CAAS;AAC/C,MAAI,CAACA,MAAL;AACE,WAAO,KAAP;AADF;AAGA,KAAI;AACF,QAAIJ,QAAJ;AACE,aAAO,CAAC,CAACI,MAAA,CAAOnB,IAAAG,SAAAQ,oBAAP,CAAT;AADF;AAGA,WAAO,CAAC,CAACQ,MAAAH,eAAT;AAJE,GAKF,QAAOI,CAAP,CAAU;AAEV,WAAO,KAAP;AAFU;AATmC,CAAjD;;",
+"sources":["goog/promise/thenable.js"],
+"names":["goog","provide","forwardDeclare","Thenable","goog.Thenable","prototype","then","goog.Thenable.prototype.then","opt_onFulfilled","opt_onRejected","opt_context","IMPLEMENTED_BY_PROP","addImplementation","goog.Thenable.addImplementation","ctor","COMPILED","$goog_Thenable","isImplementedBy","goog.Thenable.isImplementedBy","object","e"]
+}

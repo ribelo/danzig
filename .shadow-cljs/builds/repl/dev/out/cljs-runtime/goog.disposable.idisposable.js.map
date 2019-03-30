@@ -1,0 +1,8 @@
+{
+"version":3,
+"file":"goog.disposable.idisposable.js",
+"lineCount":12,
+"mappings":"AAqBAA,IAAAC,QAAA,CAAa,6BAAb,CAAA;AAUA,eAAAD,IAAAE,WAAAC,YAAA,GAA8BC,QAAQ,EAAG;CAAzC;AAOA;;;AAAAJ,IAAAE,WAAAC,YAAAE,UAAAC,QAAA,GAAgDN,IAAAO,eAAhD;AAMA;;;AAAAP,IAAAE,WAAAC,YAAAE,UAAAG,WAAA,GAAmDR,IAAAO,eAAnD;;",
+"sources":["goog/disposable/idisposable.js"],
+"names":["goog","provide","disposable","IDisposable","goog.disposable.IDisposable","prototype","dispose","abstractMethod","isDisposed"]
+}

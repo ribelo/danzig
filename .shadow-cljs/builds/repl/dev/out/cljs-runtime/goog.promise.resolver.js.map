@@ -1,0 +1,8 @@
+{
+"version":3,
+"file":"goog.promise.resolver.js",
+"lineCount":12,
+"mappings":"AAcAA,IAAAC,QAAA,CAAa,uBAAb,CAAA;AAEAD,IAAAE,eAAA,CAAoB,cAApB,CAAA;AAYA;;;;AAAAF,IAAAG,QAAAC,SAAA,GAAwBC,QAAQ,EAAG;CAAnC;AAOA,mCAAAL,IAAAG,QAAAC,SAAAE,UAAAH,QAAA;AAOA,6DAAAH,IAAAG,QAAAC,SAAAE,UAAAC,QAAA;AAOA,iCAAAP,IAAAG,QAAAC,SAAAE,UAAAE,OAAA;;",
+"sources":["goog/promise/resolver.js"],
+"names":["goog","provide","forwardDeclare","promise","Resolver","goog.promise.Resolver","prototype","resolve","reject"]
+}

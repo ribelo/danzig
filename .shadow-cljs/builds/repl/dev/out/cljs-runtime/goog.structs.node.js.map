@@ -1,0 +1,8 @@
+{
+"version":3,
+"file":"goog.structs.node.js",
+"lineCount":30,
+"mappings":"AAoBAA,IAAAC,QAAA,CAAa,mBAAb,CAAA;AAYA;;;;;;AAAAD,IAAAE,QAAAC,KAAA,GAAoBC,QAAQ,CAACC,GAAD,EAAMC,KAAN,CAAa;AAKvC,4BAAA,IAAAC,KAAA,GAAYF,GAAZ;AAMA,4BAAA,IAAAG,OAAA,GAAcF,KAAd;AAXuC,CAAzC;AAmBA;;;AAAAN,IAAAE,QAAAC,KAAAM,UAAAC,OAAA,GAAqCC,QAAQ,EAAG;AAC9C,SAAO,IAAAJ,KAAP;AAD8C,CAAhD;AASA;;;AAAAP,IAAAE,QAAAC,KAAAM,UAAAG,SAAA,GAAuCC,QAAQ,EAAG;AAChD,SAAO,IAAAL,OAAP;AADgD,CAAlD;AAUA;;;AAAAR,IAAAE,QAAAC,KAAAM,UAAAK,MAAA,GAAoCC,QAAQ,EAAG;AAC7C,SAAO,IAAIf,IAAAE,QAAAC,KAAJ,CAAsB,IAAAI,KAAtB,EAAiC,IAAAC,OAAjC,CAAP;AAD6C,CAA/C;;",
+"sources":["goog/structs/node.js"],
+"names":["goog","provide","structs","Node","goog.structs.Node","key","value","key_","value_","prototype","getKey","goog.structs.Node.prototype.getKey","getValue","goog.structs.Node.prototype.getValue","clone","goog.structs.Node.prototype.clone"]
+}

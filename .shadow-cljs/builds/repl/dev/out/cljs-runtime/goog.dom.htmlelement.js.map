@@ -1,0 +1,8 @@
+{
+"version":3,
+"file":"goog.dom.htmlelement.js",
+"lineCount":8,
+"mappings":"AAcAA,IAAAC,QAAA,CAAa,sBAAb,CAAA;AAcA;;;;AAAAD,IAAAE,IAAAC,YAAA,GAAuBC,QAAQ,EAAG;CAAlC;;",
+"sources":["goog/dom/htmlelement.js"],
+"names":["goog","provide","dom","HtmlElement","goog.dom.HtmlElement"]
+}

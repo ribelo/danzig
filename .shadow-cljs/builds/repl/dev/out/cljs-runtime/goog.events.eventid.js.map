@@ -1,0 +1,8 @@
+{
+"version":3,
+"file":"goog.events.eventid.js",
+"lineCount":15,
+"mappings":"AAcAA,IAAAC,QAAA,CAAa,qBAAb,CAAA;AAqBA;;;;;;;AAAAD,IAAAE,OAAAC,QAAA,GAAsBC,QAAQ,CAACC,OAAD,CAAU;AACxB,gBAAA,IAAAC,GAAA,GAAUD,OAAV;AADwB,CAAxC;AAQA,iBAAAL,IAAAE,OAAAC,QAAAI,UAAAC,SAAA,GAAyCC,QAAQ,EAAG;AAClD,SAAO,IAAAH,GAAP;AADkD,CAApD;;",
+"sources":["goog/events/eventid.js"],
+"names":["goog","provide","events","EventId","goog.events.EventId","eventId","id","prototype","toString","goog.events.EventId.prototype.toString"]
+}

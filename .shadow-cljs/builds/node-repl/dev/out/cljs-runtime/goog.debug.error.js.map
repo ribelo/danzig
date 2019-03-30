@@ -1,0 +1,8 @@
+{
+"version":3,
+"file":"goog.debug.error.js",
+"lineCount":23,
+"mappings":"AAuBAA,IAAAC,QAAA,CAAa,kBAAb,CAAA;AAUA;;;;;AAAAD,IAAAE,MAAAC,MAAA,GAAmBC,QAAQ,CAACC,OAAD,CAAU;AAGnC,MAAIF,KAAAG,kBAAJ;AACEH,SAAAG,kBAAA,CAAwB,IAAxB,EAA8BN,IAAAE,MAAAC,MAA9B,CAAA;AADF,QAEO;AACL,QAAII,QAAQA,CAAA,IAAIJ,KAAJI,OAAZ;AACA,QAAIA,KAAJ;AAEE,uBAAA,IAAAA,MAAA,GAAaA,KAAb;AAFF;AAFK;AAQP,MAAIF,OAAJ;AAEE,qBAAA,IAAAG,QAAA,GAAeC,MAAA,CAAOJ,OAAP,CAAf;AAFF;AAYA,yBAAA,IAAAK,oBAAA,GAA2B,IAA3B;AAzBmC,CAArC;AA2BAV,IAAAW,SAAA,CAAcX,IAAAE,MAAAC,MAAd,EAAgCA,KAAhC,CAAA;AAIA,iBAAAH,IAAAE,MAAAC,MAAAS,UAAAC,KAAA,GAAkC,aAAlC;;",
+"sources":["goog/debug/error.js"],
+"names":["goog","provide","debug","Error","goog.debug.Error","opt_msg","captureStackTrace","stack","message","String","reportErrorToServer","inherits","prototype","name"]
+}

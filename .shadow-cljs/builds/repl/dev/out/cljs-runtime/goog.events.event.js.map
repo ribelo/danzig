@@ -1,0 +1,8 @@
+{
+"version":3,
+"file":"goog.events.event.js",
+"lineCount":42,
+"mappings":"AAoBAA,IAAAC,QAAA,CAAa,mBAAb,CAAA;AACAD,IAAAC,QAAA,CAAa,uBAAb,CAAA;AAOA;;;AAAAD,IAAAE,QAAA,CAAa,iBAAb,CAAA;AACAF,IAAAE,QAAA,CAAa,qBAAb,CAAA;AAWA,wEAAAF,IAAAG,OAAAC,UAAA;AAkBA;;;;;;AAAAJ,IAAAG,OAAAE,MAAA,GAAoBC,QAAQ,CAACC,IAAD,EAAOC,UAAP,CAAmB;AAK7C,wBAAA,IAAAD,KAAA,GAAYA,IAAA,YAAgBP,IAAAG,OAAAM,QAAhB,GAAsCC,MAAA,CAAOH,IAAP,CAAtC,GAAqDA,IAAjE;AASA,oCAAA,IAAAI,OAAA,GAAcH,UAAd;AAMA,oCAAA,IAAAI,cAAA,GAAqB,IAAAD,OAArB;AAOA,iCAAA,IAAAE,oBAAA,GAA2B,KAA3B;AAUA,yBAAA,IAAAC,iBAAA,GAAwB,KAAxB;AAOA,iCAAA,IAAAC,aAAA,GAAoB,IAApB;AA5C6C,CAA/C;AAmDAf,IAAAG,OAAAE,MAAAW,UAAAC,gBAAA,GAA8CC,QAAQ,EAAG;AACvD,MAAAL,oBAAA,GAA2B,IAA3B;AADuD,CAAzD;AAQAb,IAAAG,OAAAE,MAAAW,UAAAG,eAAA,GAA6CC,QAAQ,EAAG;AACtD,MAAAN,iBAAA,GAAwB,IAAxB;AACA,MAAAC,aAAA,GAAoB,KAApB;AAFsD,CAAxD;AAYA;;;AAAAf,IAAAG,OAAAE,MAAAY,gBAAA,GAAoCI,QAAQ,CAACC,CAAD,CAAI;AAC9CA,GAAAL,gBAAA,EAAA;AAD8C,CAAhD;AAWA;;;AAAAjB,IAAAG,OAAAE,MAAAc,eAAA,GAAmCI,QAAQ,CAACD,CAAD,CAAI;AAC7CA,GAAAH,eAAA,EAAA;AAD6C,CAA/C;;",
+"sources":["goog/events/event.js"],
+"names":["goog","provide","require","events","EventLike","Event","goog.events.Event","type","opt_target","EventId","String","target","currentTarget","propagationStopped_","defaultPrevented","returnValue_","prototype","stopPropagation","goog.events.Event.prototype.stopPropagation","preventDefault","goog.events.Event.prototype.preventDefault","goog.events.Event.stopPropagation","e","goog.events.Event.preventDefault"]
+}

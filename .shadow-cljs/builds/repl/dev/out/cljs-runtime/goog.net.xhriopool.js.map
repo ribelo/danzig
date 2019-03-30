@@ -1,0 +1,8 @@
+{
+"version":3,
+"file":"goog.net.xhriopool.js",
+"lineCount":44,
+"mappings":"AAqBAA,IAAAC,QAAA,CAAa,oBAAb,CAAA;AAEAD,IAAAE,QAAA,CAAa,gBAAb,CAAA;AACAF,IAAAE,QAAA,CAAa,2BAAb,CAAA;AAeA;;;;;;;;AAAAF,IAAAG,IAAAC,UAAA,GAAqBC,QAAQ,CACzBC,WADyB,EACZC,YADY,EACEC,YADF,EACgBC,mBADhB,CACqC;AAMhE,uDAAA,IAAAC,SAAA,GAAgBJ,WAAhB;AAYA,kCAAA,IAAAK,iBAAA,GAAwB,CAAC,CAACF,mBAA1B;AAMAT,MAAAY,QAAAC,aAAAC,KAAA,CAA+B,IAA/B,EAAqCP,YAArC,EAAmDC,YAAnD,CAAA;AAxBgE,CADlE;AA2BAR,IAAAe,SAAA,CAAcf,IAAAG,IAAAC,UAAd,EAAkCJ,IAAAY,QAAAC,aAAlC,CAAA;AAQA;;;;AAAAb,IAAAG,IAAAC,UAAAY,UAAAC,aAAA,GAA4CC,QAAQ,EAAG;AACrD,MAAIC,QAAQ,IAAInB,IAAAG,IAAAiB,MAAhB;AACA,MAAIC,UAAU,IAAAX,SAAd;AACA,MAAIW,OAAJ;AACEA,WAAAC,QAAA,CAAgB,QAAQ,CAACC,KAAD,EAAQC,GAAR,CAAa;AAAEL,WAAAE,QAAAI,IAAA,CAAkBD,GAAlB,EAAuBD,KAAvB,CAAA;AAAF,KAArC,CAAA;AADF;AAGA,MAAI,IAAAZ,iBAAJ;AACEQ,SAAAO,mBAAA,CAAyB,IAAzB,CAAA;AADF;AAGA,SAAOP,KAAP;AATqD,CAAvD;AAoBA;;;;;AAAAnB,IAAAG,IAAAC,UAAAY,UAAAW,kBAAA,GAAiDC,QAAQ,CAACC,GAAD,CAAM;AAE7D,MAAIC,oCAAoC,CAACD,GAAD,CAAxC;AACA,SAAO,CAACC,GAAAC,WAAA,EAAR,IAA4B,CAACD,GAAAE,SAAA,EAA7B;AAH6D,CAA/D;;",
+"sources":["goog/net/xhriopool.js"],
+"names":["goog","provide","require","net","XhrIoPool","goog.net.XhrIoPool","opt_headers","opt_minCount","opt_maxCount","opt_withCredentials","headers_","withCredentials_","structs","PriorityPool","call","inherits","prototype","createObject","goog.net.XhrIoPool.prototype.createObject","xhrIo","XhrIo","headers","forEach","value","key","set","setWithCredentials","objectCanBeReused","goog.net.XhrIoPool.prototype.objectCanBeReused","obj","xhr","isDisposed","isActive"]
+}

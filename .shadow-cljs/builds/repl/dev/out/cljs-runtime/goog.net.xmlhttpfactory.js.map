@@ -1,0 +1,8 @@
+{
+"version":3,
+"file":"goog.net.xmlhttpfactory.js",
+"lineCount":24,
+"mappings":"AAoBAA,IAAAC,QAAA,CAAa,yBAAb,CAAA;AAGA;;;AAAAD,IAAAE,QAAA,CAAa,kBAAb,CAAA;AAQA,oBAAAF,IAAAG,IAAAC,eAAA,GAA0BC,QAAQ,EAAG;CAArC;AAQA,gCAAAL,IAAAG,IAAAC,eAAAE,UAAAC,eAAA,GAAmD,IAAnD;AAMA;;;AAAAP,IAAAG,IAAAC,eAAAE,UAAAE,eAAA,GAAmDR,IAAAS,eAAnD;AAOA;;;AAAAT,IAAAG,IAAAC,eAAAE,UAAAI,WAAA,GAA+CC,QAAQ,EAAG;AACxD,SAAO,IAAAJ,eAAP,KACK,IAAAA,eADL,GAC2B,IAAAK,mBAAA,EAD3B;AADwD,CAA1D;AAaA;;;;AAAAZ,IAAAG,IAAAC,eAAAE,UAAAM,mBAAA,GAAuDZ,IAAAS,eAAvD;;",
+"sources":["goog/net/xmlhttpfactory.js"],
+"names":["goog","provide","require","net","XmlHttpFactory","goog.net.XmlHttpFactory","prototype","cachedOptions_","createInstance","abstractMethod","getOptions","goog.net.XmlHttpFactory.prototype.getOptions","internalGetOptions"]
+}

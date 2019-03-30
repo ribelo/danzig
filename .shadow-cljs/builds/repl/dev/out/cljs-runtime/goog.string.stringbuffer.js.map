@@ -1,0 +1,8 @@
+{
+"version":3,
+"file":"goog.string.stringbuffer.js",
+"lineCount":51,
+"mappings":"AAkBAA,IAAAC,QAAA,CAAa,0BAAb,CAAA;AAYA;;;;;AAAAD,IAAAE,OAAAC,aAAA,GAA2BC,QAAQ,CAACC,MAAD,EAASC,QAAT,CAAmB;AACpD,MAAID,MAAJ,IAAc,IAAd;AACE,QAAAE,OAAAC,MAAA,CAAkB,IAAlB,EAAwBC,SAAxB,CAAA;AADF;AADoD,CAAtD;AAYA,+BAAAT,IAAAE,OAAAC,aAAAO,UAAAC,QAAA,GAA6C,EAA7C;AASA;;;AAAAX,IAAAE,OAAAC,aAAAO,UAAAE,IAAA,GAAyCC,QAAQ,CAACC,CAAD,CAAI;AACnD,MAAAH,QAAA,GAAe,EAAf,GAAoBG,CAApB;AADmD,CAArD;AAiBA;;;;;;;AAAAd,IAAAE,OAAAC,aAAAO,UAAAH,OAAA,GAA4CQ,QAAQ,CAACC,EAAD,EAAKC,MAAL,EAAaX,QAAb,CAAuB;AAEzE,MAAAK,QAAA,IAAgBO,MAAA,CAAOF,EAAP,CAAhB;AACA,MAAIC,MAAJ,IAAc,IAAd;AACE,SAAK,IAAIE,IAAI,CAAb,EAAgBA,CAAhB,GAAoBV,SAAAW,OAApB,EAAsCD,CAAA,EAAtC;AACE,UAAAR,QAAA,IAAgBF,SAAA,CAAUU,CAAV,CAAhB;AADF;AADF;AAKA,SAAO,IAAP;AARyE,CAA3E;AAeAnB,IAAAE,OAAAC,aAAAO,UAAAW,MAAA,GAA2CC,QAAQ,EAAG;AACpD,MAAAX,QAAA,GAAe,EAAf;AADoD,CAAtD;AAQA;;;AAAAX,IAAAE,OAAAC,aAAAO,UAAAa,UAAA,GAA+CC,QAAQ,EAAG;AACxD,SAAO,IAAAb,QAAAS,OAAP;AADwD,CAA1D;AASA;;;;AAAApB,IAAAE,OAAAC,aAAAO,UAAAe,SAAA,GAA8CC,QAAQ,EAAG;AACvD,SAAO,IAAAf,QAAP;AADuD,CAAzD;;",
+"sources":["goog/string/stringbuffer.js"],
+"names":["goog","provide","string","StringBuffer","goog.string.StringBuffer","opt_a1","var_args","append","apply","arguments","prototype","buffer_","set","goog.string.StringBuffer.prototype.set","s","goog.string.StringBuffer.prototype.append","a1","opt_a2","String","i","length","clear","goog.string.StringBuffer.prototype.clear","getLength","goog.string.StringBuffer.prototype.getLength","toString","goog.string.StringBuffer.prototype.toString"]
+}

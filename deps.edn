@@ -1,11 +1,12 @@
-{:paths   ["src"]
- :deps    {org.clojure/clojure    {:mvn/version "1.9.0"}
-           org.clojure/core.async {:mvn/version "0.4.474"}
-           com.taoensso/encore    {:mvn/version "2.96.0"}
-           net.cgrand/xforms      {:mvn/version "0.18.2"}
-           clj-time               {:mvn/version "0.11.0"}
-           cheshire               {:mvn/version "5.8.0"}
+{:paths   ["src" "env/dev"]
+ :deps    {org.clojure/clojure    {:mvn/version "1.10.0"}
+           org.clojure/core.async {:mvn/version "0.4.490"}
+           com.taoensso/encore    {:mvn/version "2.108.1"}
+           net.cgrand/xforms      {:mvn/version "0.19.0"}
+           clj-time               {:mvn/version "0.15.1"}
+           clojure.java-time      {:mvn/version "0.3.2"}
+           cheshire               {:mvn/version "5.8.1"}
            ribelo/visby           {:git/url "https://github.com/ribelo/visby.git"
-                                   :sha     "7209b3e384c4d3fdf5d5b0d5d06a18a18971398a"}}
+                                   :sha     "b82aaa0e371443fbc2f4bd959bff716d1e2dab22"}}
  :aliases {:dev {:extra-deps {criterium                        {:mvn/version "0.4.4"}
                               org.apache.commons/commons-math3 {:mvn/version "3.6.1"}}}}}

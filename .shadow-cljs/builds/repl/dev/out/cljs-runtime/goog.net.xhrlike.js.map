@@ -1,0 +1,8 @@
+{
+"version":3,
+"file":"goog.net.xhrlike.js",
+"lineCount":44,
+"mappings":"AAcAA,IAAAC,QAAA,CAAa,kBAAb,CAAA;AAYA,kBAAAD,IAAAE,IAAAC,QAAA,GAAmBC,QAAQ,EAAG;CAA9B;AAOA,sDAAAJ,IAAAE,IAAAC,QAAAE,SAAA;AAOA,2CAAAL,IAAAE,IAAAC,QAAAG,UAAAC,mBAAA;AAOA,sBAAAP,IAAAE,IAAAC,QAAAG,UAAAE,aAAA;AAOA,wBAAAR,IAAAE,IAAAC,QAAAG,UAAAG,YAAA;AAOA,sBAAAT,IAAAE,IAAAC,QAAAG,UAAAI,WAAA;AAOA,sBAAAV,IAAAE,IAAAC,QAAAG,UAAAK,OAAA;AAOA,sBAAAX,IAAAE,IAAAC,QAAAG,UAAAM,WAAA;AAWA;;;;;;;AAAAZ,IAAAE,IAAAC,QAAAG,UAAAO,KAAA,GAAkCC,QAAQ,CACtCC,MADsC,EAC9BC,GAD8B,EACzBC,SADyB,EACdC,QADc,EACJC,YADI,CACU;CADpD;AAQA;;;AAAAnB,IAAAE,IAAAC,QAAAG,UAAAc,KAAA,GAAkCC,QAAQ,CAACC,QAAD,CAAW;CAArD;AAMAtB,IAAAE,IAAAC,QAAAG,UAAAiB,MAAA,GAAmCC,QAAQ,EAAG;CAA9C;AAQA;;;;AAAAxB,IAAAE,IAAAC,QAAAG,UAAAmB,iBAAA,GAA8CC,QAAQ,CAACC,MAAD,EAASC,KAAT,CAAgB;CAAtE;AAQA;;;;AAAA5B,IAAAE,IAAAC,QAAAG,UAAAuB,kBAAA,GAA+CC,QAAQ,CAACH,MAAD,CAAS;CAAhE;AAOA;;;AAAA3B,IAAAE,IAAAC,QAAAG,UAAAyB,sBAAA,GAAmDC,QAAQ,EAAG;CAA9D;;",
+"sources":["goog/net/xhrlike.js"],
+"names":["goog","provide","net","XhrLike","goog.net.XhrLike","OrNative","prototype","onreadystatechange","responseText","responseXML","readyState","status","statusText","open","goog.net.XhrLike.prototype.open","method","url","opt_async","opt_user","opt_password","send","goog.net.XhrLike.prototype.send","opt_data","abort","goog.net.XhrLike.prototype.abort","setRequestHeader","goog.net.XhrLike.prototype.setRequestHeader","header","value","getResponseHeader","goog.net.XhrLike.prototype.getResponseHeader","getAllResponseHeaders","goog.net.XhrLike.prototype.getAllResponseHeaders"]
+}

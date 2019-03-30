@@ -1,0 +1,8 @@
+{
+"version":3,
+"file":"goog.structs.priorityqueue.js",
+"lineCount":26,
+"mappings":"AA2BAA,IAAAC,QAAA,CAAa,4BAAb,CAAA;AAEAD,IAAAE,QAAA,CAAa,mBAAb,CAAA;AAYA;;;;;;AAAAF,IAAAG,QAAAC,cAAA,GAA6BC,QAAQ,EAAG;AACtCL,MAAAG,QAAAG,KAAAC,KAAA,CAAuB,IAAvB,CAAA;AADsC,CAAxC;AAGAP,IAAAQ,SAAA,CAAcR,IAAAG,QAAAC,cAAd,EAA0CJ,IAAAG,QAAAG,KAA1C,CAAA;AASA;;;;AAAAN,IAAAG,QAAAC,cAAAK,UAAAC,QAAA,GAA+CC,QAAQ,CAACC,QAAD,EAAWC,KAAX,CAAkB;AACvE,MAAAC,OAAA,CAAYF,QAAZ,EAAsBC,KAAtB,CAAA;AADuE,CAAzE;AAUA;;;AAAAb,IAAAG,QAAAC,cAAAK,UAAAM,QAAA,GAA+CC,QAAQ,EAAG;AACxD,SAAO,IAAAC,OAAA,EAAP;AADwD,CAA1D;;",
+"sources":["goog/structs/priorityqueue.js"],
+"names":["goog","provide","require","structs","PriorityQueue","goog.structs.PriorityQueue","Heap","call","inherits","prototype","enqueue","goog.structs.PriorityQueue.prototype.enqueue","priority","value","insert","dequeue","goog.structs.PriorityQueue.prototype.dequeue","remove"]
+}

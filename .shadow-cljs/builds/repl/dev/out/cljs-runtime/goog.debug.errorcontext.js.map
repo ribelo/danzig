@@ -1,0 +1,8 @@
+{
+"version":3,
+"file":"goog.debug.errorcontext.js",
+"lineCount":21,
+"mappings":"AAkBAA,IAAAC,QAAA,CAAa,yBAAb,CAAA;AASA;;;;;AAAAD,IAAAE,MAAAC,aAAAC,gBAAA,GAA0CC,QAAQ,CAC9CC,GAD8C,EACzCC,UADyC,EAC7BC,YAD6B,CACf;AACjC,MAAI,CAACF,GAAA,CAAIN,IAAAE,MAAAC,aAAAM,aAAJ,CAAL;AACEH,OAAA,CAAIN,IAAAE,MAAAC,aAAAM,aAAJ,CAAA,GAA4C,EAA5C;AADF;AAGAH,KAAA,CAAIN,IAAAE,MAAAC,aAAAM,aAAJ,CAAA,CAA0CF,UAA1C,CAAA,GAAwDC,YAAxD;AAJiC,CADnC;AAaA;;;;AAAAR,IAAAE,MAAAC,aAAAO,gBAAA,GAA0CC,QAAQ,CAACL,GAAD,CAAM;AACtD,SAAOA,GAAA,CAAIN,IAAAE,MAAAC,aAAAM,aAAJ,CAAP,IAAoD,EAApD;AADsD,CAAxD;AAQA,sCAAAT,IAAAE,MAAAC,aAAAM,aAAA,GAAuC,mCAAvC;;",
+"sources":["goog/debug/errorcontext.js"],
+"names":["goog","provide","debug","errorcontext","addErrorContext","goog.debug.errorcontext.addErrorContext","err","contextKey","contextValue","CONTEXT_KEY_","getErrorContext","goog.debug.errorcontext.getErrorContext"]
+}

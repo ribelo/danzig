@@ -1,0 +1,8 @@
+{
+"version":3,
+"file":"goog.net.wrapperxmlhttpfactory.js",
+"lineCount":26,
+"mappings":"AAoBAA,IAAAC,QAAA,CAAa,gCAAb,CAAA;AAGA;;;AAAAD,IAAAE,QAAA,CAAa,kBAAb,CAAA;AACAF,IAAAE,QAAA,CAAa,yBAAb,CAAA;AAgBA;;;;;;;AAAAF,IAAAG,IAAAC,sBAAA,GAAiCC,QAAQ,CAACC,UAAD,EAAaC,cAAb,CAA6B;AACpEP,MAAAG,IAAAK,eAAAC,KAAA,CAA6B,IAA7B,CAAA;AAOA,gEAAA,IAAAC,YAAA,GAAmBJ,UAAnB;AAOA,6CAAA,IAAAK,gBAAA,GAAuBJ,cAAvB;AAfoE,CAAtE;AAiBAP,IAAAY,SAAA,CAAcZ,IAAAG,IAAAC,sBAAd,EAA8CJ,IAAAG,IAAAK,eAA9C,CAAA;AAIA,iBAAAR,IAAAG,IAAAC,sBAAAS,UAAAC,eAAA,GAA0DC,QAAQ,EAAG;AACnE,SAAO,IAAAL,YAAA,EAAP;AADmE,CAArE;AAMA,iBAAAV,IAAAG,IAAAC,sBAAAS,UAAAG,WAAA,GAAsDC,QAAQ,EAAG;AAC/D,SAAO,IAAAN,gBAAA,EAAP;AAD+D,CAAjE;;",
+"sources":["goog/net/wrapperxmlhttpfactory.js"],
+"names":["goog","provide","require","net","WrapperXmlHttpFactory","goog.net.WrapperXmlHttpFactory","xhrFactory","optionsFactory","XmlHttpFactory","call","xhrFactory_","optionsFactory_","inherits","prototype","createInstance","goog.net.WrapperXmlHttpFactory.prototype.createInstance","getOptions","goog.net.WrapperXmlHttpFactory.prototype.getOptions"]
+}

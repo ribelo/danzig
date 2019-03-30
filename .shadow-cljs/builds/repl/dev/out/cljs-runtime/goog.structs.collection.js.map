@@ -1,0 +1,8 @@
+{
+"version":3,
+"file":"goog.structs.collection.js",
+"lineCount":25,
+"mappings":"AAoBAA,IAAAC,QAAA,CAAa,yBAAb,CAAA;AASA;;;;AAAAD,IAAAE,QAAAC,WAAA,GAA0BC,QAAQ,EAAG;CAArC;AAMA;;;AAAAJ,IAAAE,QAAAC,WAAAE,UAAAC,IAAA;AAMA;;;AAAAN,IAAAE,QAAAC,WAAAE,UAAAE,OAAA;AAOA;;;;AAAAP,IAAAE,QAAAC,WAAAE,UAAAG,SAAA;AAMA;;;AAAAR,IAAAE,QAAAC,WAAAE,UAAAI,SAAA;;",
+"sources":["goog/structs/collection.js"],
+"names":["goog","provide","structs","Collection","goog.structs.Collection","prototype","add","remove","contains","getCount"]
+}
