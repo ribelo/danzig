@@ -1,8 +1,0 @@
-{
-"version":3,
-"file":"shadow.js.shim.module$fs.js",
-"lineCount":5,
-"mappings":"AAAAA,IAAAC,QAAA,CAAa,0BAAb,CAAA;AACAD,IAAAC,QAAA,CAAa,iCAAb,CAAA;AACAC,MAAAC,GAAAC,KAAAC,UAAA,GAA2BC,OAAA,CAAQ,IAAR,CAA3B;AACAC,+BAAAC,QAAA,GAA0CN,MAAAC,GAAAC,KAAAC,UAA1C;;",
-"sources":["shadow.js.shim.module$fs.js"],
-"names":["goog","provide","shadow","js","shim","module$fs","require","module$shadow_js_shim_module$fs","default"]
-}
