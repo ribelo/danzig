@@ -1,6 +1,7 @@
 (ns ribelo.wombat.plot.echarts
   (:require [clojure.string :as str]
-            [cheshire.core :as json]))
+            [cheshire.core :as json]
+            [hiccup.core :refer [html]]))
 
 
 (defn- split-words [s]
@@ -20,17 +21,21 @@
     (str/join "" (conj (map str/capitalize (rest words)) (str/lower-case (first words))))))
 
 
-;(defn init []
-;  (let [code "require.config({
-;                            paths: {
-;                              echarts: 'https://cdnjs.cloudflare.com/ajax/libs/echarts/4.1.0/echarts-en'
-;                            }
-;                          });
-;                          require(['echarts'], function(echarts){
-;                            window.echarts = echarts
-;                          });"]
-;    (display/hiccup-html
-;      [:div [:script code]])))
+(def html-init
+  (let [code "require.config({
+                            paths: {
+                              echarts: 'https://cdnjs.cloudflare.com/ajax/libs/echarts/4.1.0/echarts-en'
+                            }
+                          });
+                          require(['echarts'], function(echarts){
+                            window.echarts = echarts
+                          });"]
+    (html [:div [:script (clojure.string/replace code #"\s" "")]])))
+
+html-init
+
+(defn init []
+  {:content-type "text/html" :content html-init})
 
 
 ;(defn plot [{:keys [width height]
@@ -41,8 +46,8 @@
 ;                          chart.setOption(%s)"
 ;                     id (json/generate-string (-> opts (dissoc :width) (dissoc :height))
 ;                                              {:key-fn camel-case}))]
-;    (display/hiccup-html
-;      [:div [:div {:id id :style (format "width:%spx;
+;    #urepl/mime {:content-type "text/html"
+;                 :content      (html [:div [:div {:id id :style (format "width:%spx;
 ;                                                height:%spx"
-;                                         width height)}]
-;       [:script code]])))
+;                                                                        width height)}]
+;                                      [:script code]])}))

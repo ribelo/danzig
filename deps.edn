@@ -6,6 +6,7 @@
            clj-time               {:mvn/version "0.15.1"}
            clojure.java-time      {:mvn/version "0.3.2"}
            cheshire               {:mvn/version "5.8.1"}
+           hiccup                 {:mvn/version "1.0.5"}
            ribelo/visby           {:git/url "https://github.com/ribelo/visby.git"
                                    :sha     "b82aaa0e371443fbc2f4bd959bff716d1e2dab22"}}
  :aliases {:dev {:extra-deps {criterium                        {:mvn/version "0.4.4"}
