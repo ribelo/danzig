@@ -55,7 +55,7 @@
 (defn mode [k]
   (map->rfs k stats/mode))
 
-(defn agg->fn [k]
+(def agg->fn
   {:first      first
    :last       last
    :min        min
@@ -72,12 +72,6 @@
    :covariance covariance
    :kurtosis   kurtosis
    :mode       mode})
-
-(defn agg->fn [k]
-  (when (#{:first :last :min :max :count :sum :mean :median
-           :std :quantile :percentile :iqr :variance
-           :covariance :kurtosis :mode} k)
-    (resolve (symbol "ribelo.wombat.aggregate" (name k)))))
 
 (defn aggregate [m]
   (let [pairs (partition 2 (reduce-kv conj [] m))]
