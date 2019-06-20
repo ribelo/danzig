@@ -43,6 +43,10 @@
    (mapcat (fn [{:keys [xs headers]}]
              (into [] (map->header (into {} headers)) xs)))))
 
+(defmethod ^:private add-header clojure.lang.IPersistentMap
+  [m & _]
+  (map->header m))
+
 (defn read-csv
   ([path {:keys [sep header encoding keywordize-headers? parse]
           :or {sep                 ","
