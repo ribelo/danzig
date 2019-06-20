@@ -6,7 +6,7 @@
    #?(:clj [net.cgrand.xforms.io :as xio])
    #?(:clj [java-time :as jt])
    [ribelo.wombat :refer [map->header]]
-   [ribelo.wombat.utils :refer [scomp]]
+   [ribelo.wombat.utils :refer [comp-some]]
    #?(:cljs ["fs" :as fs]))
   (:import
    #?(:clj (clojure.lang Keyword Fn))))
@@ -33,7 +33,7 @@
   [i & [keywordize-headers?]]
   (comp
    (x/transjuxt {:xs (comp (drop (inc i)) (x/into []))
-                 :headers (scomp
+                 :headers (comp-some
                            (when (<= 1 i) (drop i))
                            (take 1)
                            (when keywordize-headers?
@@ -50,7 +50,7 @@
                keywordize-headers? false}}]
    (->> (xio/lines-in path :encoding encoding)
         (into []
-              (scomp
+              (comp-some
                (split-sep sep)
                (when header (add-header header keywordize-headers?))
                (when parse
@@ -69,7 +69,7 @@
                       encoding     "utf8"}}]
    (xio/lines-out
     path
-    (scomp
+    (comp-some
      (if add-index?
        (map-indexed #(assoc %2 :_index %1)))
      (when add-headers?

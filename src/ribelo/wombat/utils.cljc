@@ -1,4 +1,4 @@
 (ns ribelo.wombat.utils)
 
-(defn scomp [& fns]
+(defn comp-some [& fns]
   (apply comp (filter identity fns)))

@@ -21,24 +21,11 @@
 (comment
   (def data (repeatedly 100 (fn [] {:a (* (rand-int 100) (if (e/chance 0.5) 1 -1))
                                     :b (* (rand-int 100) (if (e/chance 0.5) 1 -1))
-                                    :c (* (rand-int 100) (if (e/chance 0.5) 1 -1))})))
-  (def data (repeatedly 100000 (fn [] [(* (rand-int 100) (if (e/chance 0.5) 1 -1))
-                                    (* (rand-int 100) (if (e/chance 0.5) 1 -1))
-                                    (* (rand-int 100) (if (e/chance 0.5) 1 -1))]))))
+                                    :c (* (rand-int 100) (if (e/chance 0.5) 1 -1))}))))
 
 
 (defn map->header [header]
   (map #(reduce-kv (fn [acc k v] (assoc acc k (nth % v))) {} header)))
-
-(into [] (map->header {:a 0 :b 1 :c 2}) data)q
-
-(comment
-  (e/qb 1 (into [] (map->header {:a 0 :b 1 :c 2}) data))
-  (e/qb 1 (into [] (coll->header [:a nil :c]) data))
-  (e/qb 1e4 (into [] (header->map2) data))
-  (e/qb 1e4 (into [] (header->map3 {:a 0 :b 1 :c 2}) data))
-  )
-
 
 (defn shape [data]
   [(count data) (count (first data))])
