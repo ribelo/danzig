@@ -55,6 +55,15 @@
 (defn mode [k]
   (map->rfs k stats/mode))
 
+(defn into-vec [k]
+  (map->rfs k (x/into [])))
+
+(defn into-map [k]
+  (map->rfs k (x/into {})))
+
+(defn into-set [k]
+  (map->rfs k (x/into #{})))
+
 (def agg->fn
   {:first      first
    :last       last
@@ -71,13 +80,16 @@
    :variance   variance
    :covariance covariance
    :kurtosis   kurtosis
-   :mode       mode})
+   :mode       mode
+   :into-vec   into-vec
+   :into-map   into-map
+   :into-set   into-set})
+
 
 (defn aggregate [m]
-  (let [pairs (partition 2 (reduce-kv conj [] m))]
-    (x/transjuxt
-     (reduce (fn [acc [k f]]
-               (let [f' (cond
-                          (fn? f) f
-                          (keyword? f) ((agg->fn f) k))]
-                 (assoc acc k f'))) {} pairs))))
+  (x/transjuxt
+   (reduce-kv (fn [acc k f]
+             (let [f (cond
+                       (fn? f) f
+                       (keyword? f) ((agg->fn f) k))]
+               (assoc acc k f))) {} m)))
