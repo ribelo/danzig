@@ -84,14 +84,14 @@
 
 (defmethod loc [java.util.Collection nil]
   [ks & _]
-  (map #(reduce (fn [acc k] (assoc acc k (get % k))) {} ks)))
+  (map #(persistent! (reduce (fn [acc k] (assoc! acc k (get % k))) (transient {}) ks))))
 
 (defmethod loc [java.util.Collection java.util.Collection]
   [x & [y & _]]
   (comp (iloc y) (loc x)))
 
 (comment
-  (into [] (loc [:a :b] [0]) data))
+  (into [] (loc [:a :b] [0 1]) data))
 
 (defmulti iloc (fn [x & [y]] [(class x) (class y)]))
 
@@ -158,7 +158,7 @@
            (do
              (vswap! xs next)
              (rf acc (assoc x k y)))
-           (reduced acc)))))))
+           (ensure-reduced acc)))))))
 
 (comment
   (into [] (set :new [0 1 2]) (take 5 data)))
@@ -186,7 +186,7 @@
   (map (fn [m] (if (pred (get m k)) (assoc m k v) m))))
 
 (comment
-  (into [] (replace :a even? 0) data))
+  (into [] (replace :a even? 0) (take 5 data)))
 
 (defmulti drop (fn [x & [y & z]] [(class x) (class y) (class z)]))
 
@@ -261,13 +261,13 @@
 
 (defmethod dropna 1
   [& _]
-  (let [vks (volatile! nil)
+  (let [vks (volatile! ::none)
         drop-ks (volatile! #{})]
     (comp
-     (x/transjuxt {:ks (comp (mapcat keys) (distinct) (x/into []))
+     (x/transjuxt {:ks (comp (take 1) (mapcat keys) (x/into []))
                    :xs (x/into [])})
      (mapcat (fn [{:keys [ks xs]}]
-               (when-not (seq @vks)
+               (when (identical? @vks ::none)
                  (vreset! vks ks)
                  (doseq [k ks]
                    (when-not (every? identity (map k xs))
@@ -286,15 +286,15 @@
 (comment
   (into [] (dropna) [{:a 1 :b 1} {:a 2 :b nil} {:a 3 :b 3}]))
 
-(defn fillna [v]
+(defn fillna1 [v]
   (comp (x/transjuxt {:ks (comp (mapcat keys) (distinct) (x/into []))
                       :xs (x/into [])})
         (mapcat (fn [{:keys [ks xs]}]
-                  (map #(reduce (fn [acc k]
-                                  (if-not (get acc k)
-                                    (assoc acc k v)
-                                    acc))
-                                % ks) xs)))))
+                  (map #(persistent! (reduce (fn [acc k]
+                                    (if-not (get acc k)
+                                      (assoc! acc k v)
+                                      acc))
+                                  (transient %) ks)) xs)))))
 
 (comment
   (into [] (fillna 0) [{:a 1 :b 1} {:a 2 :b nil} {:a 3 :b 3}]))
@@ -314,8 +314,8 @@
    (map second)))
 
 (comment
-  (into [] (group-by :a {:b (x/into [])
-                         :c :sum}) data))
+  (into [] (group-by :a {:c :sum}) [{:a 1 :c 1} {:a 1 :c 2} {:a 2 :c 3} {:a 2 :c 4}])
+  (into [] (group-by :a {:c :sum}) data))
 
 (defmethod group-by [clojure.lang.Keyword clojure.lang.Fn]
   [k f]
@@ -358,39 +358,45 @@
   (into [] (value-counts) data)
   (into [] (value-counts :a) data))
 
-(defn- ->freq [[k n]]
+(defn- keyword->freq [[n k]]
   (case k
-    :ms (jt/millis (or n 1))
-    :s (jt/seconds (or n 1))
-    :min (jt/minutes (or n 1))
-    :t (jt/minutes (or n 1))
-    :h (jt/hours (or n 1))
-    :d (jt/days (or n 1))
-    :m (jt/months (or n 1))
-    :y (jt/years (or n 1))))
+    :ms (jt/millis n)
+    :s (jt/seconds n)
+    :min (jt/minutes n)
+    :t (jt/minutes n)
+    :h (jt/hours n)
+    :d (jt/days n)
+    :m (jt/months n)
+    :y (jt/years n)))
 
-(defn asfreq [freq & {:keys [key fill] :or {key :date}}]
-  (let [fill' (conj fill key)]
+(defn asfreq [freq & {:keys [key fill] :or {key :date fill []}}]
+  (let [fill (conj fill key)]
     (comp
      (x/sort-by key)
      (fn [rf]
-       (let [freq' (->freq freq)
-             lst (volatile! nil)]
+       (let [freq (keyword->freq freq)
+             lst  (volatile! ::none)
+             dq   (java.util.ArrayDeque.)]
          (fn
            ([] (rf))
-           ([acc] (rf acc))
+           ([acc] (let [result (let [v (vec (.toArray dq))]
+                                 (.clear dq)
+                                 (rf acc v))]
+                    (rf result)))
            ([acc x]
-            (if-not @lst
-              (do (vreset! lst (select-keys x fill'))
-                  (rf acc x))
-              (let [last-date (jt/plus (get @lst key) freq')
-                    date (get x key)
-                    dts (take-while #(jt/before? % date)
-                                    (jt/iterate jt/plus last-date freq'))
-                    tmps (reduce (fn [acc d] (conj acc (assoc @lst key d))) [] dts)]
-                (vreset! lst (select-keys x fill'))
-                (reduce (fn [acc x] (rf acc x)) (unreduced (rf acc x)) tmps)))))))
-     (x/sort-by key))))
+            (if (identical? @lst ::none)
+              (do (vreset! lst (reduce (fn [acc k] (assoc acc k (get x k))) {} fill))
+                  (.add dq x)
+                  acc)
+              (let [last-date (jt/plus (get @lst key) freq)
+                    date      (get x key)
+                    dts       (take-while #(jt/before? % date)
+                                          (jt/iterate jt/plus last-date freq))
+                    tmps      (persistent! (reduce (fn [acc d] (conj! acc (assoc @lst key d))) (transient []) dts))]
+                (vreset! lst (select-keys x fill))
+                (.add dq x)
+                (doseq [e tmps] (.add dq e))
+                acc)))))))))
 
 (defn window
   ([n]
@@ -423,10 +429,12 @@
   (into [] columns data))
 
 (defn select-columns [ks]
-  (map #(select-keys % ks)))
+  (map #(persistent! (reduce (fn [acc k] (assoc! acc k (get % k))) (transient {}) ks))))
 
 (comment
-  (into [] (select-columns [:a :b]) data)
+  [(e/qb 1e4 (into [] (select-columns [:a :b]) data))
+   (e/qb 1e4 (into [] (select-columns2 [:a :b]) data))
+   (e/qb 1e4 (into [] (select-columns2 [:a :b]) data))]
   (= (into [] (select-columns [:a :b]) data)
      (into [] (loc [:a :b]) data)))
 
