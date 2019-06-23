@@ -146,8 +146,7 @@
 (comment
   (into [] (set :new 0) (take 5 data)))
 
-
-(defmethod set [clojure.lang.Keyword clojure.lang.IPersistentVector nil]
+(defmethod set [clojure.lang.Keyword java.util.Collection nil]
   [k & [coll & _]]
   (fn [rf]
     (let [xs (volatile! coll)]
@@ -164,20 +163,14 @@
 (comment
   (into [] (set :new [0 1 2]) (take 5 data)))
 
-(defmethod set [clojure.lang.Keyword clojure.lang.IPersistentList nil]
-  [k & [[f & ks] & _]]
+(defmethod set [clojure.lang.Keyword clojure.lang.Fn java.util.Collection]
+  [k & [f & [ks]]]
   (map (fn [m]
          (let [v (apply f (persistent! (reduce (fn [acc k] (conj! acc (get m k))) (transient []) ks)))]
-           (assoc m k v)))))
+         (assoc m k v)))))
 
 (comment
-  (into [] (set :new '(+ :a :b)) (take 5 data)))
-
-(defmethod set [clojure.lang.Keyword clojure.lang.PersistentList]
-  [k & [f & [coll]]]
-  (map (fn [m]
-         (let [v (apply f (vals (select-keys m coll)))]
-           (assoc m k v)))))
+  (into [] (set :new + [:a :b]) (take 5 data)))
 
 (defmulti replace (fn [x & [y & [z]]] [(class x) (class y) (class z)]))
 
