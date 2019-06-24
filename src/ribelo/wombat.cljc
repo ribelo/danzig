@@ -375,32 +375,34 @@
      (x/sort-by key)
      (fn [rf]
        (let [freq (keyword->freq freq)
-             lst  (volatile! ::none)
-             dq   (java.util.ArrayDeque.)]
+             lst  (volatile! ::none)]
          (fn
            ([] (rf))
-           ([acc] (let [v (transient (vec (.toArray dq)))]
-                    (.clear dq)
-                    (rf v)))
+           ([acc] (rf acc))
            ([acc x]
             (if (identical? @lst ::none)
-              (do (vreset! lst (reduce (fn [acc k] (assoc acc k (get x k))) {} fill))
-                  (.add dq x)
-                  acc)
+              (do (vreset! lst (select-keys x fill))
+                  (rf acc x))
               (let [last-date (jt/plus (get @lst key) freq)
                     date      (get x key)
                     dts       (take-while #(jt/before? % date)
                                           (jt/iterate jt/plus last-date freq))
-                    tmps      (persistent! (reduce (fn [acc d] (conj! acc (assoc @lst key d))) (transient []) dts))]
-                (vreset! lst (persistent! (reduce (fn [acc k] (assoc! acc k (get x k))) (transient {}) fill)))
-                (doseq [e tmps] (.add dq e))
-                (.add dq x)
-                acc)))))))))
+                    tmps      (persistent! (reduce (fn [acc d] (conj! acc (assoc @lst key d)))
+                                                   (transient [])
+                                                   dts))]
+                (vreset! lst (persistent! (reduce (fn [acc k] (assoc! acc k (get x k)))
+                                                  (transient {})
+                                                  fill)))
+                (vreset! lst (select-keys x fill))
+                (reduce (fn [acc v] (rf acc v)) acc tmps)
+                (rf acc x))))))))))
 
 (comment
-  (into [] (asfreq [1 :d]) [{:date (jt/local-date "2019-01-01")}
-                            {:date (jt/local-date "2019-01-06")}
-                            {:date (jt/local-date "2019-01-03")}]))
+  (into [] (comp (asfreq [1 :d] :fill [:a])
+                 (map :a))
+        [{:date (jt/local-date "2019-01-01") :a 1}
+                            {:date (jt/local-date "2019-01-06") :a 2}
+                            {:date (jt/local-date "2019-01-03") :a 3}]))
 
 (defn window
   ([n]
