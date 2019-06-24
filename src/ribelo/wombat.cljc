@@ -379,10 +379,9 @@
              dq   (java.util.ArrayDeque.)]
          (fn
            ([] (rf))
-           ([acc] (let [result (let [v (vec (.toArray dq))]
-                                 (.clear dq)
-                                 (rf acc v))]
-                    (rf result)))
+           ([acc] (let [v (transient (vec (.toArray dq)))]
+                    (.clear dq)
+                    (rf v)))
            ([acc x]
             (if (identical? @lst ::none)
               (do (vreset! lst (reduce (fn [acc k] (assoc acc k (get x k))) {} fill))
