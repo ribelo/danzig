@@ -393,10 +393,15 @@
                     dts       (take-while #(jt/before? % date)
                                           (jt/iterate jt/plus last-date freq))
                     tmps      (persistent! (reduce (fn [acc d] (conj! acc (assoc @lst key d))) (transient []) dts))]
-                (vreset! lst (select-keys x fill))
-                (.add dq x)
+                (vreset! lst (persistent! (reduce (fn [acc k] (assoc! acc k (get x k))) (transient {}) fill)))
                 (doseq [e tmps] (.add dq e))
+                (.add dq x)
                 acc)))))))))
+
+(comment
+  (into [] (asfreq [1 :d]) [{:date (jt/local-date "2019-01-01")}
+                            {:date (jt/local-date "2019-01-06")}
+                            {:date (jt/local-date "2019-01-03")}]))
 
 (defn window
   ([n]
