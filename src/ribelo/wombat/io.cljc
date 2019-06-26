@@ -48,13 +48,15 @@
   (map->header m))
 
 (defn read-csv
-  ([path {:keys [sep header encoding keywordize-headers? parse]
+  ([path {:keys [sep drop-lines header encoding keywordize-headers? parse]
           :or {sep                 ","
+               drop-lines          nil
                encoding            "utf-8"
                keywordize-headers? false}}]
    (->> (xio/lines-in path :encoding encoding)
         (into []
               (comp-some
+               (when drop-lines (drop drop-lines))
                (split-sep sep)
                (when header (add-header header keywordize-headers?))
                (when parse
