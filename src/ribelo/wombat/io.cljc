@@ -27,6 +27,9 @@
 (defmethod parse-dtype Keyword [key] (dtype->fn key))
 (defmethod parse-dtype Fn [f] f)
 
+laksander - 1 - 10
+
+
 (defmulti ^:private add-header (fn [x & _] (class x)))
 
 (defmethod ^:private add-header java.lang.Long
@@ -38,8 +41,7 @@
                            (take 1)
                            (when keywordize-headers?
                              (map #(map keyword %)))
-                           (map #(map vector % (range)))
-                           )})
+                           (map #(map vector % (range))))})
    (mapcat (fn [{:keys [xs headers]}]
              (into [] (map->header (into {} headers)) xs)))))
 
@@ -49,21 +51,21 @@
 
 (defn read-csv
   ([path {:keys [sep drop-lines header encoding keywordize-headers? parse]
-          :or {sep                 ","
-               drop-lines          nil
-               encoding            "utf-8"
-               keywordize-headers? false}}]
+          :or   {sep                 ","
+                 drop-lines          nil
+                 encoding            "utf-8"
+                 keywordize-headers? false}}]
    (->> (xio/lines-in path :encoding encoding)
-        (into []
-              (comp-some
-               (when drop-lines (drop drop-lines))
-               (split-sep sep)
-               (when header (add-header header keywordize-headers?))
-               (when parse
-                 (map (fn [m]
-                        (reduce-kv (fn [acc k v]
-                                  (update acc k (parse-dtype v)))
-                                m parse))))))))
+        (eduction
+         (comp-some
+          (when drop-lines (drop drop-lines))
+          (split-sep sep)
+          (when header (add-header header keywordize-headers?))
+          (when parse
+            (map (fn [m]
+                   (reduce-kv (fn [acc k v]
+                                (update acc k (parse-dtype v)))
+                              m parse))))))))
   ([path]
    (read-csv path {})))
 
