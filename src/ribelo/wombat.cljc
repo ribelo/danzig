@@ -301,17 +301,20 @@
 
 (defmulti group-by (fn [f m] [(class f) (class m)]))
 
+(defmethod group-by [clojure.lang.Fn clojure.lang.Fn]
+  [f xf]
+  (comp
+   (x/by-key f xf)))
+
 (defmethod group-by [clojure.lang.Fn java.util.Map]
   [f m]
   (comp
-   (x/by-key f (agg/aggregate m))
-   (map second)))
+   (x/by-key f (agg/aggregate m))))
 
 (defmethod group-by [clojure.lang.Keyword java.util.Map]
   [k m]
   (comp
-   (x/by-key k (agg/aggregate (assoc m k :first)))
-   (map second)))
+   (x/by-key k (agg/aggregate (assoc m k :first)))))
 
 (comment
   (into [] (group-by :a {:c :sum}) [{:a 1 :c 1} {:a 1 :c 2} {:a 2 :c 3} {:a 2 :c 4}])
@@ -329,8 +332,7 @@
   (comp
    (x/by-key (apply juxt ks) (agg/aggregate
                               (reduce (fn [acc k]
-                                        (assoc acc k :first)) m ks)))
-   (map second)))
+                                        (assoc acc k :first)) m ks)))))
 
 (comment
   (into [] (group-by [:a :b] {:a :sum}) data))
