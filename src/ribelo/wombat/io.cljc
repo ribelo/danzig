@@ -54,7 +54,7 @@
                encoding            "utf-8"
                keywordize-headers? false}}]
    (->> (xio/lines-in path :encoding encoding)
-        (into []
+        (eduction
               (comp-some
                (when drop-lines (drop drop-lines))
                (split-sep sep)
