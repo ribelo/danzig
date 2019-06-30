@@ -7,7 +7,8 @@
    #?(:clj [java-time :as jt])
    [ribelo.wombat :refer [map->header]]
    [ribelo.wombat.utils :refer [comp-some]]
-   #?(:cljs ["fs" :as fs]))
+   #?(:cljs ["fs" :as fs])
+   [clojure.string :as str])
   (:import
    #?(:clj (clojure.lang Keyword Fn))))
 
@@ -29,7 +30,7 @@
 
 (defmulti ^:private add-header (fn [x & _] (class x)))
 
-(defmethod ^:private add-header java.lang.Long
+(defmethod ^:private add-header #?(:clj java.lang.Long :cljs js/Number)
   [i & [keywordize-headers?]]
   (comp
    (x/transjuxt {:xs (comp (drop (inc i)) (x/into []))
@@ -38,32 +39,72 @@
                            (take 1)
                            (when keywordize-headers?
                              (map #(map keyword %)))
-                           (map #(map vector % (range)))
-                           )})
+                           (map #(map vector % (range))))})
    (mapcat (fn [{:keys [xs headers]}]
              (into [] (map->header (into {} headers)) xs)))))
+
+(defmethod ^:private add-header #?(:clj java.lang.Long :cljs js/Number)
+  [i & [keywordize-headers?]]
+  (fn [rf]
+    (let [_n      (volatile! 0)
+          _headers (volatile! ::none)]
+      (fn
+        ([] (rf))
+        ([acc] (rf acc))
+        ([acc x]
+         (cond
+           (and (identical? @_headers ::none) (< @_n i))
+           (do
+             (vswap! _n inc)
+             acc)
+
+           (identical? @_n i)
+           (let [ks (cond->> x
+                      keywordize-headers?
+                      (map #(-> % str/trim (str/replace " " "-") (str/replace "\"" "") keyword)))]
+             (vswap! _n inc)
+             (vreset! _headers ks)
+             acc)
+
+           :else
+           (rf acc (into {} (map vector @_headers x)))))))))
 
 (defmethod ^:private add-header clojure.lang.IPersistentMap
   [m & _]
   (map->header m))
 
+(defn remove-quote [q]
+  (fn [rf]
+    (fn
+      ([] (rf))
+      ([acc] (rf acc))
+      ([acc x]
+       (let [x (persistent!
+                (reduce-kv
+                 (fn [acc k v]
+                   (assoc! acc k (str/trim (str/replace v (re-pattern q) ""))))
+                 (transient {})
+                 x))]
+         (rf acc x))))))
+
 (defn read-csv
-  ([path {:keys [sep drop-lines header encoding keywordize-headers? parse]
+  ([path {:keys [sep quote drop-lines header encoding keywordize-headers? parse]
           :or {sep                 ","
                drop-lines          nil
                encoding            "utf-8"
                keywordize-headers? false}}]
    (->> (xio/lines-in path :encoding encoding)
-        (eduction
-              (comp-some
-               (when drop-lines (drop drop-lines))
-               (split-sep sep)
-               (when header (add-header header keywordize-headers?))
-               (when parse
-                 (map (fn [m]
-                        (reduce-kv (fn [acc k v]
-                                  (update acc k (parse-dtype v)))
-                                m parse))))))))
+        (into []
+         (comp-some
+          (when drop-lines (drop drop-lines))
+          (split-sep sep)
+          (when header (add-header header keywordize-headers?))
+          (when quote (remove-quote quote))
+          (when parse
+            (map (fn [m]
+                   (reduce-kv (fn [acc k v]
+                                (update acc k (parse-dtype v)))
+                              m parse))))))))
   ([path]
    (read-csv path {})))
 
