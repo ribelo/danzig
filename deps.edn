@@ -7,7 +7,7 @@
            cheshire               {:mvn/version "5.8.1"}
            hiccup                 {:mvn/version "1.0.5"}
            ribelo/visby           {:git/url "https://github.com/ribelo/visby"
-                                   :sha     "f487252c6f022ea0c728c1795967e24d3378762c"}}
+                                   :sha     "8d33fa5ceb909ee392153ac01d4fc45f170dd958"}}
  :aliases {:dev  {:extra-deps {criterium                        {:mvn/version "0.4.4"}
                                org.apache.commons/commons-math3 {:mvn/version "3.6.1"}}}
            :nrepl {:extra-deps {cider/cider-nrepl {:mvn/version "0.21.1"}}}}}

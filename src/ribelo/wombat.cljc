@@ -190,7 +190,7 @@
            (assoc m k v)))))
 
 (comment
-  (into [] (set :new + [:a :b]) data)q)
+  (into [] (set :new + [:a :b]) data) q)
 
 (defmulti replace (fn [x & [y & [z]]] [(class* x) (class* y) (class* z)]))
 
@@ -387,33 +387,33 @@
        :y (jt/years n))))
 
 #?(:clj
- (defn asfreq [freq & {:keys [key fill] :or {key :date fill []}}]
-   (let [fill (conj fill key)]
-     (comp
-      (x/sort-by key)
-      (fn [rf]
-        (let [freq (keyword->freq freq)
-              lst  (volatile! ::none)]
-          (fn
-            ([] (rf))
-            ([acc] (rf acc))
-            ([acc x]
-             (if (identical? @lst ::none)
-               (do (vreset! lst (select-keys x fill))
-                   (rf acc x))
-               (let [last-date (jt/plus (get @lst key) freq)
-                     date      (get x key)
-                     dts       (take-while #(jt/before? % date)
-                                           (jt/iterate jt/plus last-date freq))
-                     tmps      (persistent! (reduce (fn [acc d] (conj! acc (assoc @lst key d)))
-                                                    (transient [])
-                                                    dts))]
-                 (vreset! lst (persistent! (reduce (fn [acc k] (assoc! acc k (get x k)))
-                                                   (transient {})
-                                                   fill)))
-                 (vreset! lst (select-keys x fill))
-                 (reduce (fn [acc v] (rf acc v)) acc tmps)
-                 (rf acc x)))))))))))
+   (defn asfreq [freq & {:keys [key fill] :or {key :date fill []}}]
+     (let [fill (conj fill key)]
+       (comp
+        (x/sort-by key)
+        (fn [rf]
+          (let [freq (keyword->freq freq)
+                lst  (volatile! ::none)]
+            (fn
+              ([] (rf))
+              ([acc] (rf acc))
+              ([acc x]
+               (if (identical? @lst ::none)
+                 (do (vreset! lst (select-keys x fill))
+                     (rf acc x))
+                 (let [last-date (jt/plus (get @lst key) freq)
+                       date      (get x key)
+                       dts       (take-while #(jt/before? % date)
+                                             (jt/iterate jt/plus last-date freq))
+                       tmps      (persistent! (reduce (fn [acc d] (conj! acc (assoc @lst key d)))
+                                                      (transient [])
+                                                      dts))]
+                   (vreset! lst (persistent! (reduce (fn [acc k] (assoc! acc k (get x k)))
+                                                     (transient {})
+                                                     fill)))
+                   (vreset! lst (select-keys x fill))
+                   (reduce (fn [acc v] (rf acc v)) acc tmps)
+                   (rf acc x)))))))))))
 
 (comment
   (into [] (comp (asfreq [1 :d] :fill [:a])
