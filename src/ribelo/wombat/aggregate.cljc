@@ -1,8 +1,7 @@
 (ns ribelo.wombat.aggregate
   (:refer-clojure :exclude [first last min max count])
   (:require [net.cgrand.xforms :as x]
-            [ribelo.visby.stats :as stats]
-            [taoensso.encore :as e]))
+            [ribelo.visby.stats :as stats]))
 
 (defn map->rfs [k rf]
   (comp (map k) rf))
@@ -14,10 +13,10 @@
   (map->rfs k x/last))
 
 (defn min [k]
-  (map->rfs k stats/min))
+  (map->rfs k (stats/min)))
 
 (defn max [k]
-  (map->rfs k stats/max))
+  (map->rfs k (stats/max)))
 
 (defn count [k]
   (map->rfs k x/count))
@@ -26,13 +25,13 @@
   (map->rfs k (x/reduce +)))
 
 (defn mean [k]
-  (map->rfs k stats/mean))
+  (map->rfs k (stats/mean)))
 
 (defn median [k]
-  (map->rfs k stats/median))
+  (map->rfs k (stats/median)))
 
 (defn std [k]
-  (map->rfs k stats/std))
+  (map->rfs k (stats/std-s)))
 
 (defn quantile [k p]
   (map->rfs k (stats/quantile p)))
@@ -41,19 +40,19 @@
   (map->rfs k (stats/percentile p)))
 
 (defn iqr [k]
-  (map->rfs k stats/iqr))
+  (map->rfs k (stats/iqr)))
 
 (defn variance [k]
-  (map->rfs k stats/variance))
+  (map->rfs k (stats/variance)))
 
 (defn covariance [k]
-  (map->rfs k stats/covariance))
+  (map->rfs k (stats/covariance)))
 
 (defn kurtosis [k]
-  (map->rfs k stats/kurtosis))
+  (map->rfs k (stats/kurtosis)))
 
 (defn mode [k]
-  (map->rfs k stats/mode))
+  (map->rfs k (stats/mode)))
 
 (defn into-vec [k]
   (map->rfs k (x/into [])))
