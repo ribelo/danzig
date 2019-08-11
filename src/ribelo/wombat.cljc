@@ -219,7 +219,7 @@
 
 (defmethod update [::keyword ::fn ::fn]
   [k pred f]
-  (map (fn [m] (if (pred (get m k)) (update m k f) m))))
+  (map (fn [m] (if (pred (get m k)) (clojure.core/update m k f) m))))
 
 (defmulti drop (fn [x & [y & z]] [(class* x) (class* y) (class* z)]))
 
