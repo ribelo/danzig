@@ -28,11 +28,16 @@
 
 (declare iloc)
 
+(def class*
+  #?(:clj class
+     :cljs type))
+
 (comment
-  (require '[taoensso.encore :as e])
-  (def data (repeatedly 100 (fn [] {:a (* (rand-int 100) (if (e/chance 0.5) 1 -1))
-                                    :b (* (rand-int 100) (if (e/chance 0.5) 1 -1))
-                                    :c (* (rand-int 100) (if (e/chance 0.5) 1 -1))}))))
+  (do
+    (require '[taoensso.encore :as e])
+    (def data (repeatedly 100 (fn [] {:a (* (rand-int 100) (if (e/chance 0.5) 1 -1))
+                                      :b (* (rand-int 100) (if (e/chance 0.5) 1 -1))
+                                      :c (* (rand-int 100) (if (e/chance 0.5) 1 -1))})))))
 
 (defn map->header [header]
   (map #(reduce-kv (fn [acc k v] (assoc acc k (nth % v))) {} header)))
@@ -49,7 +54,7 @@
 (defmulti row
   "make a map, with given kays and values"
   {:arglists '([ks vs])}
-  (fn [x y] [(type x) (type y)]))
+  (fn [x y] [(class* x) (class* y)]))
 
 (defmethod row [::collection ::collection]
   [ks vs]
@@ -60,7 +65,7 @@
 
 (defmulti where
   {:arglists '([x & [y]])}
-  (fn [x & [y]] [(type x) (type y)]))
+  (fn [x & [y]] [(class* x) (class* y)]))
 
 (defmethod where [::fn nil]
   [pred & _]
@@ -85,7 +90,7 @@
 
 (defmulti loc
   {:arglists '([x & [y]])}
-  (fn [x & [y]] [(type x) (type y)]))
+  (fn [x & [y]] [(class* x) (class* y)]))
 
 (defmethod loc [::keyword nil]
   [k & _]
@@ -108,7 +113,7 @@
 (comment
   (into [] (loc [:a :b] [0 1]) data))
 
-(defmulti iloc (fn [x & [y]] [(type x) (type y)]))
+(defmulti iloc (fn [x & [y]] [(class* x) (class* y)]))
 
 (defmethod iloc [::number nil]
   [x & [_ & _]]
@@ -131,7 +136,7 @@
 (comment
   (into [] (iloc [1 3 5]) data))
 
-(defmulti set (fn [x & [y & [z]]] [(type x) (type y) (type z)]))
+(defmulti set (fn [x & [y & [z]]] [(class* x) (class* y) (class* z)]))
 
 (defmethod set [::number ::map nil]
   [x & [y & [_ & _]]]
@@ -187,7 +192,7 @@
 (comment
   (into [] (set :new + [:a :b]) data) q)
 
-(defmulti replace (fn [x & [y & [z]]] [(type x) (type y) (type z)]))
+(defmulti replace (fn [x & [y & [z]]] [(class x) (class y) (class z)]))
 
 (defmethod replace [::fn ::any nil]
   [pred v]
@@ -203,17 +208,20 @@
 (comment
   (into [] (replace :a even? 0) (take 5 data)))
 
-(defmulti update (fn [x & [y & [z]]] [(type x) (type y) (type z)]))
+(defmulti update (fn [x & [y & [z]]] [(class* x) (class* y) (class* z)]))
 
 (defmethod update [::keyword ::fn nil]
   [k f]
   (map (fn [m] (update m k f))))
 
+(comment
+  (into [] (replace :a even? 2) data))
+
 (defmethod update [::keyword ::fn ::fn]
   [k pred f]
   (map (fn [m] (if (pred (get m k)) (update m k f) m))))
 
-(defmulti drop (fn [x & [y & z]] [(type x) (type y) (type z)]))
+(defmulti drop (fn [x & [y & z]] [(class* x) (class* y) (class* z)]))
 
 (defmethod drop [::number nil nil]
   [x & _]
@@ -318,7 +326,7 @@
 (comment
   (into [] (fillna 0) [{:a 1 :b 1} {:a 2 :b nil} {:a 3 :b 3}]))
 
-(defmulti group-by (fn [f m] [(type f) (type m)]))
+(defmulti group-by (fn [f m] [(class* f) (class* m)]))
 
 (defmethod group-by [::fn ::fn]
   [f xf]
