@@ -1,10 +1,9 @@
 (ns ribelo.wombat
-  (:refer-clojure :exclude [set replace sort-by drop fill group-by merge])
-  (:require [taoensso.encore :as e]
-            [net.cgrand.xforms :as x]
-            #?(:clj [java-time :as jt])
-            [ribelo.visby.stats :as stats]
-            [ribelo.wombat.aggregate :as agg]))
+  (:refer-clojure :exclude [set replace sort-by drop fill group-by merge update])
+  (:require
+   [net.cgrand.xforms :as x]
+   #?(:clj [java-time :as jt])
+   [ribelo.wombat.aggregate :as agg]))
 
 #?(:clj (derive java.lang.Number ::number)
    :cljs (derive js/Number ::number))
@@ -20,9 +19,8 @@
    :cljs (do (derive cljs.core/PersistentArrayMap ::map)
              (derive cljs.core/PersistentHashMap ::map)))
 (derive ::keyword ::value)
-(derive ::value ::any)
-(derive ::collection ::any)
-(derive ::map ::any)
+#?(:clj (derive java.lang.Object ::any)
+   :cljs (derive js/Object ::any))
 #?(:clj (derive clojure.lang.Fn ::fn)
    :cljs (derive js/Function ::fn))
 #?(:clj (derive clojure.lang.ArraySeq ::seq)
@@ -30,11 +28,8 @@
 
 (declare iloc)
 
-(def class*
-  #?(:clj class
-     :cljs type))
-
 (comment
+  (require '[taoensso.encore :as e])
   (def data (repeatedly 100 (fn [] {:a (* (rand-int 100) (if (e/chance 0.5) 1 -1))
                                     :b (* (rand-int 100) (if (e/chance 0.5) 1 -1))
                                     :c (* (rand-int 100) (if (e/chance 0.5) 1 -1))}))))
@@ -54,7 +49,7 @@
 (defmulti row
   "make a map, with given kays and values"
   {:arglists '([ks vs])}
-  (fn [x y] [(class* x) (class* y)]))
+  (fn [x y] [(type x) (type y)]))
 
 (defmethod row [::collection ::collection]
   [ks vs]
@@ -65,7 +60,7 @@
 
 (defmulti where
   {:arglists '([x & [y]])}
-  (fn [x & [y]] [(class* x) (class* y)]))
+  (fn [x & [y]] [(type x) (type y)]))
 
 (defmethod where [::fn nil]
   [pred & _]
@@ -90,7 +85,7 @@
 
 (defmulti loc
   {:arglists '([x & [y]])}
-  (fn [x & [y]] [(class* x) (class* y)]))
+  (fn [x & [y]] [(type x) (type y)]))
 
 (defmethod loc [::keyword nil]
   [k & _]
@@ -101,7 +96,7 @@
 
 (defmethod loc [::collection nil]
   [ks & _]
-  (map #(persistent! (reduce (fn [acc k] (assoc! acc k (get % k))) (transient {}) ks))))
+  (map #(reduce (fn [acc k] (assoc acc k (get % k))) {} ks)))
 
 (comment
   (into [] (loc [:a :b]) data))
@@ -113,17 +108,17 @@
 (comment
   (into [] (loc [:a :b] [0 1]) data))
 
-(defmulti iloc (fn [x & [y]] [(class* x) (class* y)]))
+(defmulti iloc (fn [x & [y]] [(type x) (type y)]))
 
 (defmethod iloc [::number nil]
-  [x & [y & args]]
+  [x & [_ & _]]
   (comp (clojure.core/drop (dec x)) (take 1)))
 
 (comment
   (into [] (iloc 0) data))
 
 (defmethod iloc [::number ::number]
-  [x & [y & args]]
+  [x & [y & _]]
   (comp (clojure.core/drop (dec x)) (take (- y x))))
 
 (comment
@@ -136,10 +131,10 @@
 (comment
   (into [] (iloc [1 3 5]) data))
 
-(defmulti set (fn [x & [y & [z]]] [(class* x) (class* y) (class* z)]))
+(defmulti set (fn [x & [y & [z]]] [(type x) (type y) (type z)]))
 
 (defmethod set [::number ::map nil]
-  [x & [y & [z & args]]]
+  [x & [y & [_ & _]]]
   (map-indexed (fn [i elem] (if (= i x) y elem))))
 
 (comment
@@ -160,7 +155,7 @@
   (into [] (set 0 3 0) (take 5 data)))
 
 (defmethod set [::keyword ::value nil]
-  [x & [y & [z]]]
+  [x & [y & [_]]]
   (map (fn [m] (assoc m x y))))
 
 (comment
@@ -192,7 +187,7 @@
 (comment
   (into [] (set :new + [:a :b]) data) q)
 
-(defmulti replace (fn [x & [y & [z]]] [(class* x) (class* y) (class* z)]))
+(defmulti replace (fn [x & [y & [z]]] [(type x) (type y) (type z)]))
 
 (defmethod replace [::fn ::any nil]
   [pred v]
@@ -208,7 +203,17 @@
 (comment
   (into [] (replace :a even? 0) (take 5 data)))
 
-(defmulti drop (fn [x & [y & z]] [(class* x) (class* y) (class* z)]))
+(defmulti update (fn [x & [y & [z]]] [(type x) (type y) (type z)]))
+
+(defmethod update [::keyword ::fn nil]
+  [k f]
+  (map (fn [m] (update m k f))))
+
+(defmethod update [::keyword ::fn ::fn]
+  [k pred f]
+  (map (fn [m] (if (pred (get m k)) (update m k f) m))))
+
+(defmulti drop (fn [x & [y & z]] [(type x) (type y) (type z)]))
 
 (defmethod drop [::number nil nil]
   [x & _]
@@ -313,7 +318,7 @@
 (comment
   (into [] (fillna 0) [{:a 1 :b 1} {:a 2 :b nil} {:a 3 :b 3}]))
 
-(defmulti group-by (fn [f m] [(class* f) (class* m)]))
+(defmulti group-by (fn [f m] [(type f) (type m)]))
 
 (defmethod group-by [::fn ::fn]
   [f xf]
@@ -405,12 +410,12 @@
                        date      (get x key)
                        dts       (take-while #(jt/before? % date)
                                              (jt/iterate jt/plus last-date freq))
-                       tmps      (persistent! (reduce (fn [acc d] (conj! acc (assoc @lst key d)))
-                                                      (transient [])
-                                                      dts))]
-                   (vreset! lst (persistent! (reduce (fn [acc k] (assoc! acc k (get x k)))
-                                                     (transient {})
-                                                     fill)))
+                       tmps      (reduce (fn [acc d] (conj acc (assoc @lst key d)))
+                                         []
+                                         dts)]
+                   (vreset! lst (reduce (fn [acc k] (assoc acc k (get x k)))
+                                        {}
+                                        fill))
                    (vreset! lst (select-keys x fill))
                    (reduce (fn [acc v] (rf acc v)) acc tmps)
                    (rf acc x)))))))))))
@@ -453,14 +458,7 @@
   (into [] columns data))
 
 (defn select-columns [ks]
-  (map #(persistent! (reduce (fn [acc k] (assoc! acc k (get % k))) (transient {}) ks))))
-
-(comment
-  [(e/qb 1e4 (into [] (select-columns [:a :b]) data))
-   (e/qb 1e4 (into [] (select-columns2 [:a :b]) data))
-   (e/qb 1e4 (into [] (select-columns2 [:a :b]) data))]
-  (= (into [] (select-columns [:a :b]) data)
-     (into [] (loc [:a :b]) data)))
+  (map #(reduce (fn [acc k] (assoc acc k (get % k))) {} ks)))
 
 (defn head
   ([] (head 5))
