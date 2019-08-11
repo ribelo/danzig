@@ -212,10 +212,10 @@
 
 (defmethod update [::keyword ::fn nil]
   [k f]
-  (map (fn [m] (update m k f))))
+  (map (fn [m] (clojure.core/update m k f))))
 
 (comment
-  (into [] (replace :a even? 2) data))
+  (into [] (update :a #(* 2 %)) data))
 
 (defmethod update [::keyword ::fn ::fn]
   [k pred f]
