@@ -88,6 +88,8 @@
 (comment
   (into [] (where :a 0) data))
 
+(prefer-method where [::keyword ::fn] [::keyword ::any])
+
 (defmulti loc
   {:arglists '([x & [y]])}
   (fn [x & [y]] [(class* x) (class* y)]))
