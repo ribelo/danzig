@@ -207,6 +207,8 @@
   [k pred v]
   (map (fn [m] (if (pred (get m k)) (assoc m k v) m))))
 
+(prefer-method replace [::keyword ::fn ::any] [::keyword ::any nil])
+
 (comment
   (into [] (replace :a even? 0) (take 5 data)))
 
@@ -402,7 +404,7 @@
        :y (jt/years n))))
 
 #?(:clj
-   (defn asfreq [freq & {:keys [key fill] :or {key :date fill []}}]
+   (defn- as-day-freq [freq {:keys [key fill] :or {key :date fill []}}]
      (let [fill (conj fill key)]
        (comp
         (x/sort-by key)
@@ -430,12 +432,96 @@
                    (reduce (fn [acc v] (rf acc v)) acc tmps)
                    (rf acc x)))))))))))
 
+#?(:clj
+   (defn- as-month-freq [freq {:keys [key fill] :or {key :date fill []}}]
+     (let [fill (conj fill key)]
+       (comp
+        (x/sort-by key)
+        (fn [rf]
+          (let [lst  (volatile! ::none)]
+            (fn
+              ([] (rf))
+              ([acc] (rf acc))
+              ([acc x]
+               (if (identical? @lst ::none)
+                 (do (vreset! lst (select-keys x fill))
+                     (rf acc (clojure.core/update x key #(jt/adjust % :last-day-of-month))))
+                 (let [last-date (jt/adjust (jt/plus (get @lst key) (jt/months 1)) :last-day-of-month)
+                       date      (jt/adjust (get x key) :last-day-of-month)
+                       dts       (take-while #(jt/before? % date)
+                                             (iterate #(-> %
+                                                           (jt/plus (jt/months 1))
+                                                           (jt/adjust :last-day-of-month))
+                                                      last-date))
+                       tmps      (reduce (fn [acc d] (conj acc (assoc @lst key d)))
+                                         []
+                                         dts)]
+                   (vreset! lst (reduce (fn [acc k] (assoc acc k (get x k)))
+                                        {}
+                                        fill))
+                   (reduce (fn [acc v] (rf acc v)) acc tmps)
+                   (rf acc (clojure.core/update x key #(jt/adjust % :last-day-of-month)))))))))))))
+
+#?(:clj
+   (defn- as-year-freq [freq {:keys [key fill] :or {key :date fill []}}]
+     (let [fill (conj fill key)]
+       (comp
+        (x/sort-by key)
+        (fn [rf]
+          (let [lst  (volatile! ::none)]
+            (fn
+              ([] (rf))
+              ([acc] (rf acc))
+              ([acc x]
+               (if (identical? @lst ::none)
+                 (do (vreset! lst (select-keys x fill))
+                     (rf acc (clojure.core/update x key #(jt/adjust % :last-day-of-year))))
+                 (let [last-date (jt/adjust (jt/plus (get @lst key) (jt/months 1))  :last-day-of-year)
+                       date      (jt/adjust (get x key)  :last-day-of-year)
+                       dts       (take-while #(jt/before? % date)
+                                             (iterate #(-> %
+                                                           (jt/plus (jt/months 1))
+                                                           (jt/adjust  :last-day-of-year))
+                                                      last-date))
+                       tmps      (reduce (fn [acc d] (conj acc (assoc @lst key d)))
+                                         []
+                                         dts)]
+                   (vreset! lst (reduce (fn [acc k] (assoc acc k (get x k)))
+                                        {}
+                                        fill))
+                   (reduce (fn [acc v] (rf acc v)) acc tmps)
+                   (rf acc (clojure.core/update x key #(jt/adjust %  :last-day-of-year)))))))))))))
+
+(defmulti asfreq (fn [[_ k] & _] k))
+
+(defmethod asfreq :d
+  ([freq opts]
+   (as-day-freq freq opts))
+  ([freq]
+   (as-day-freq freq {})))
+
+(defmethod asfreq :m
+  ([freq opts]
+   (as-month-freq freq opts))
+  ([freq]
+   (as-month-freq freq {})))
+
+(defmethod asfreq :y
+  ([freq opts]
+   (as-year-freq freq opts))
+  ([freq]
+   (as-year-freq freq {})))
+
+
 (comment
-  (into [] (comp (asfreq [1 :d] :fill [:a])
-                 (map :a))
+  (into [] (comp (asfreq [1 :d] {:fill [:a]}))
         [{:date (jt/local-date "2019-01-01") :a 1}
          {:date (jt/local-date "2019-01-06") :a 2}
-         {:date (jt/local-date "2019-01-03") :a 3}]))
+         {:date (jt/local-date "2019-01-03") :a 3}])
+  (into [] (comp (asfreq [1 :m] {:fill [:a]}))
+        [{:date (jt/local-date "2019-01-01") :a 1}
+         {:date (jt/local-date "2019-03-06") :a 2}
+         {:date (jt/local-date "2019-06-03") :a 3}]))
 
 (defn window
   ([n]
