@@ -1,9 +1,11 @@
 (ns ribelo.wombat
   (:refer-clojure :exclude [set replace sort-by drop fill group-by merge update])
   (:require
+   [clojure.core.async :as a]
    [net.cgrand.xforms :as x]
    #?(:clj [java-time :as jt])
-   [ribelo.wombat.aggregate :as agg]))
+   [ribelo.wombat.aggregate :as agg]
+   [ribelo.wombat.utils :refer [comp-some]]))
 
 #?(:clj (derive java.lang.Number ::number)
    :cljs (derive js/Number ::number))
@@ -38,6 +40,20 @@
     (def data (repeatedly 100 (fn [] {:a (* (rand-int 100) (if (e/chance 0.5) 1 -1))
                                       :b (* (rand-int 100) (if (e/chance 0.5) 1 -1))
                                       :c (* (rand-int 100) (if (e/chance 0.5) 1 -1))})))))
+
+(defmacro =>>
+  [coll & body]
+  `(into []
+         (comp-some
+          ~@body)
+         ~coll))
+
+(defmacro +>>
+  [coll & body]
+  `(into {}
+         (comp-some
+          ~@body)
+         ~coll))
 
 (defn map->header [header]
   (map #(reduce-kv (fn [acc k v] (assoc acc k (nth % v))) {} header)))
@@ -511,7 +527,6 @@
    (as-year-freq freq opts))
   ([freq]
    (as-year-freq freq {})))
-
 
 (comment
   (into [] (comp (asfreq [1 :d] {:fill [:a]}))
