@@ -1,9 +1,9 @@
 (ns ribelo.wombat
   (:refer-clojure :exclude [set replace sort-by drop fill group-by merge update])
   (:require
-   [clojure.core.async :as a]
    [net.cgrand.xforms :as x]
    #?(:clj [java-time :as jt])
+   [ribelo.visby.math :as math]
    [ribelo.wombat.aggregate :as agg]
    [ribelo.wombat.utils :refer [comp-some]]))
 
@@ -100,6 +100,20 @@
 (defmethod where [::keyword ::any]
   [k & [pred]]
   (filter #(= pred (get % k))))
+
+(comment
+  (into [] (where :a 0) data))
+
+(defmethod where [long ::fn]
+  [n & [pred]]
+  (filter #(pred (nth % n))))
+
+(comment
+  (into [] (where :a even?) data))
+
+(defmethod where [java.lang.Long ::any]
+  [n & [pred]]
+  (filter #(= pred (nth % n))))
 
 (comment
   (into [] (where :a 0) data))
@@ -228,6 +242,24 @@
 (comment
   (into [] (replace :a even? 0) (take 5 data)))
 
+(defmulti round (fn [& [x & [y]]] [(class* x) (class* y)]))
+
+(defmethod round [nil nil]
+  []
+  (map math/round))
+
+(defmethod round [java.lang.Long nil]
+  [^long nplaces]
+  (map (partial math/round nplaces)))
+
+(defmethod round [::keyword nil]
+  [k]
+  (map #(clojure.core/update % k math/round)))
+
+(defmethod round [::keyword java.lang.Long]
+  [k ^long nplaces]
+  (map #(clojure.core/update % k (partial math/round nplaces))))
+
 (defmulti update (fn [x & [y & [z]]] [(class* x) (class* y) (class* z)]))
 
 (defmethod update [::keyword ::fn nil]
@@ -333,7 +365,7 @@
 (comment
   (into [] (dropna) [{:a 1 :b 1} {:a 2 :b nil} {:a 3 :b 3}]))
 
-(defn fillna1 [v]
+(defn fillna [v]
   (comp (x/transjuxt {:ks (comp (mapcat keys) (distinct) (x/into []))
                       :xs (x/into [])})
         (mapcat (fn [{:keys [ks xs]}]
