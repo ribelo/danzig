@@ -117,7 +117,7 @@
    (xio/lines-out
     path
     (comp-some
-     (if add-index?
+     (when add-index?
        (map-indexed #(assoc %2 :_index %1)))
      (when add-headers?
        (comp
