@@ -3,4 +3,4 @@
          net.cgrand/xforms   {:mvn/version "0.19.0"}
          clojure.java-time   {:mvn/version "0.3.2"}
          ribelo/visby        {:git/url "https://github.com/ribelo/visby"
-                              :sha     "c4f6f767e1ee428d27fc685a4b06d650fe17a090"}}}
+                              :sha     "0a70b00f7200df2153e164ce314ae7007eecde13"}}}
