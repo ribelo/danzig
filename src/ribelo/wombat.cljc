@@ -603,6 +603,9 @@
 (defn select-columns [ks]
   (map #(reduce (fn [acc k] (assoc acc k (get % k))) {} ks)))
 
+(defn rename-columns [m]
+  (map #(clojure.set/rename-keys % m)))
+
 (defn head
   ([] (head 5))
   ([n] (take n)))
