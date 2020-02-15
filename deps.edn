@@ -1,6 +1,5 @@
 {:paths ["src" "env/dev"]
- :deps  {com.taoensso/encore {:mvn/version "2.115.0"}
-         net.cgrand/xforms   {:mvn/version "0.19.0"}
-         clojure.java-time   {:mvn/version "0.3.2"}
-         ribelo/visby        {:git/url "https://github.com/ribelo/visby"
-                              :sha     "0a70b00f7200df2153e164ce314ae7007eecde13"}}}
+ :deps  {net.cgrand/xforms    {:mvn/version "0.19.2"}
+         clojure.java-time    {:mvn/version "0.3.2"}
+         ribelo.hansa/rostock {:git/url "https://github.com/ribelo/rostock"
+                               :sha     "fde8c0a0195ed370370e7cda1a5a3fcb1efd3eaa"}}}

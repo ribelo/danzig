@@ -1,7 +1,7 @@
-(ns ribelo.wombat.aggregate
+(ns hanse.danzig.aggregate
   (:refer-clojure :exclude [first last min max count])
   (:require [net.cgrand.xforms :as x]
-            [ribelo.visby.stats :as stats]))
+            [hanse.rostock.stats :as stats]))
 
 (defn map->rfs [k rf]
   (comp (map k) rf))
@@ -31,7 +31,7 @@
   (map->rfs k (stats/median)))
 
 (defn std [k]
-  (map->rfs k (stats/std-s)))
+  (map->rfs k (stats/std)))
 
 (defn quantile [k p]
   (map->rfs k (stats/quantile p)))
@@ -47,12 +47,6 @@
 
 (defn covariance [k]
   (map->rfs k (stats/covariance)))
-
-(defn kurtosis [k]
-  (map->rfs k (stats/kurtosis)))
-
-(defn mode [k]
-  (map->rfs k (stats/mode)))
 
 (defn into-vec [k]
   (map->rfs k (x/into [])))
@@ -78,17 +72,16 @@
    :iqr        iqr
    :variance   variance
    :covariance covariance
-   :kurtosis   kurtosis
-   :mode       mode
    :into-vec   into-vec
    :into-map   into-map
    :into-set   into-set})
 
-
 (defn aggregate [m]
   (x/transjuxt
    (reduce-kv (fn [acc k f]
-             (let [f (cond
-                       (fn? f) f
-                       (keyword? f) ((agg->fn f) k))]
-               (assoc acc k f))) {} m)))
+                (let [f (cond
+                          (fn? f) f
+                          (keyword? f) ((agg->fn f) k)
+                          (coll? f) ((agg->fn (clojure.core/second f)) (clojure.core/first f)))]
+                  (println :f f)
+                  (assoc acc k f))) {} m)))

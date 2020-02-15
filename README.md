@@ -1,4 +1,4 @@
-# ribelo.wombat
+# hanse.danzig
 
 A easy-to-use data structures and data analysis tools for the Clojure programming language.
 Wombat pretends to be clojure pandas...but it will never happen.
@@ -10,7 +10,7 @@ The problem may be that I do not know anything about programming.
 ## Usage
 
 ```clojure
-(require '[ribelo.wombat.dataframe :as df])
+(require '[hanse.danzig.dataframe :as df])
 
 (let [data (map (fn [_] {:a (rand-int 10) :b (rand-int 10)}) (range 10))]
   (into [] (df/loc :a) data))
@@ -78,7 +78,7 @@ The problem may be that I do not know anything about programming.
 ;;     [:b
 ;;     {:count 10, :mean 3.4, :std 3.2041639575194445, :min 0, :25% 2.75, :50% 4.0, :75% 6.75, :max 9}]]
 
-(require 'ribelo.wombat.aggregate :as agg)
+(require 'hanse.danzig.aggregate :as agg)
 (let [data (map (fn [_] {:a (rand-int 10) :b (rand-int 10)}) (range 10))]
   (into [] (agg/aggregate {:a :sum :b :mean}) data))
 
