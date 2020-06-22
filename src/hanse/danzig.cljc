@@ -1,76 +1,84 @@
 (ns hanse.danzig
   (:refer-clojure :exclude [set replace sort-by drop fill group-by merge update])
+  #?(:cljs (:require-macros [hanse.danzig :refer [=>> +>> and-macro or-macro where]]))
   (:require
    [net.cgrand.xforms :as x]
    #?(:clj [java-time :as jt])
-   [hanse.danzig.relationship]
-   [hanse.rostock.math :as math]
-   [hanse.danzig.aggregate :as agg]))
+   [hanse.danzig.relationship]))
 
 (declare iloc)
-
-(defn comp-some [& fns]
-  (apply comp (filter identity fns)))
 
 (comment
   (do
     (require '[taoensso.encore :as e])
-    (require '[criterium.core :refer [quick-bench]])
+    #?(:clj (require '[criterium.core :refer [quick-bench]]))
     (def data (repeatedly 1000000 (fn [] {:a (* (rand-int 100) (if (e/chance 0.5) 1 -1))
                                           :b (* (rand-int 100) (if (e/chance 0.5) 1 -1))
                                           :c (* (rand-int 100) (if (e/chance 0.5) 1 -1))})))))
 
-(defmacro =>>
-  [coll & body]
-  `(into []
-         (comp-some
-          ~@body)
-         ~coll))
+#?(:clj
+   (defmacro =>>
+     [coll & body]
+     `(into []
+            (comp-some
+             ~@body)
+            ~coll)))
 
-(defmacro +>>
-  [coll & body]
-  `(into {}
-         (comp-some
-          ~@body)
-         ~coll))
+#?(:clj
+   (defmacro +>>
+     [coll & body]
+     `(into {}
+            (comp-some
+             ~@body)
+            ~coll)))
 
-(defmacro ^:private and-macro [coll]
-  (loop [[[op k & v] & coll] coll
-         r                   '()]
-    (if op
-      (recur coll (conj r (if v
-                            `(~op (get ~'m ~k) ~(first v))
-                            `(~op (get ~'m ~k)))))
-      `(and ~@r))))
+#?(:clj
+   (defmacro ^:private and-macro [coll]
+     (loop [[[op k & v] & coll] coll
+            r                   '()]
+       (if op
+         (recur coll (conj r (if v
+                               `(~op (get ~'m ~k) ~(first v))
+                               `(~op (get ~'m ~k)))))
+         `(and ~@r)))))
 
-(defmacro ^:private or-macro [coll]
-  (loop [[[op k & v] & coll] coll
-         r                   '()]
-    (if op
-      (recur coll (conj r (if v
-                            `(~op (get ~'m ~k) ~(first v))
-                            `(~op (get ~'m ~k)))))
-      `(clojure.core/or ~@r))))
+#?(:clj
+   (defmacro ^:private or-macro [coll]
+     (loop [[[op k & v] & coll] coll
+            r                   '()]
+       (if op
+         (recur coll (conj r (if v
+                               `(~op (get ~'m ~k) ~(first v))
+                               `(~op (get ~'m ~k)))))
+         `(clojure.core/or ~@r)))))
 
-(defmulti vecs->maps (fn [ks] (class ks)))
+(defn comp-some [& fns]
+  (apply comp (filter identity fns)))
 
-(defmethod vecs->maps java.util.Map
+(defmulti vecs->maps (fn [ks] (type ks)))
+
+(defmethod vecs->maps :danzig/map
   [ks]
   (map #(persistent! (reduce-kv (fn [acc k v] (assoc! acc k (nth % v))) (transient {}) ks))))
 
-(defmethod vecs->maps java.util.Collection
+(defmethod vecs->maps :danzig/collection
   [ks]
   (map #(zipmap ks %)))
 
 (comment
   (=>> [[0 0] [1 1] [2 2]] (vecs->maps {:a 0 :b 1}))
-  (=>> [[0 0] [1 1] [2 2]] (vecs->maps [:a :b])))
+  ;; => [{:a 0, :b 0} {:a 1, :b 1} {:a 2, :b 2}]
+  (=>> [[0 0] [1 1] [2 2]] (vecs->maps [:a :b]))
+  ;; => [{:a 0, :b 0} {:a 1, :b 1} {:a 2, :b 2}]
+  )
 
 (defn shape [data]
   [(count data) (count (first data))])
 
 (comment
-  (shape data))
+  (shape data)
+  ;; => [1000000 3]
+  )
 
 (defmulti row
   "make a map, with given kays and values"
@@ -82,7 +90,9 @@
   (zipmap ks vs))
 
 (comment
-  (row [:a :b :c] [1 2 3]))
+  (row [:a :b :c] [1 2 3])
+  ;; => {:a 1, :b 2, :c 3}
+  )
 
 (defmulti where*
   {:arglists '([[x & [y & [z]]]])}
@@ -93,46 +103,55 @@
   (filter (fn [m] (apply f (into [(get m k)] v)))))
 
 (comment
-  (=>> data (where* [> :a 1.0])))
+  (=>> data (where* [> :a 1.0]) (take 1))
+  ;; => [{:a 58, :b 94, :c -70}]
+  )
 
 (defmethod where* [:danzig/fn :danzig/column-name :danzig/column-name]
   [[f & [k & ks]]]
   (filter (fn [m] (apply f (reduce (fn [acc k] (conj acc (get m k))) [] (into [k] ks))))))
 
-(prefer-method where*
-               [:danzig/fn :danzig/column-name :danzig/column-name]
-               [:danzig/fn :danzig/column-name :danzig/any])
+#?(:clj (prefer-method where*
+                       [:danzig/fn :danzig/column-name :danzig/column-name]
+                       [:danzig/fn :danzig/column-name :danzig/any]))
 
 (comment
-  (=>> data (where* [> :a :b])))
+  (=>> data (where* [> :a :b]) (take 1))
+  ;; => [{:a 40, :b -69, :c 99}]
+  )
 
 (defmethod where* [:danzig/fn :danzig/column-name nil]
   [[f & [k]]]
   (filter (fn [m] (f (get m k)))))
 
 (comment
-  (=>> data (where* [even? :a])))
+  (=>> data (where* [even? :a]) (take 1))
+  ;; => [{:a 58, :b 94, :c -70}]
+  )
 
-(defmacro where [[x & y :as args]]
-  (case x
-    :and `(filter (fn [~'m] (and-macro ~y)))
-    :or  `(filter (fn [~'m] (or-macro ~y)))
-    `(where* ~args)))
+#?(:clj
+   (defmacro where [[x & y :as args]]
+     (case x
+       :and `(filter (fn [~'m] (and-macro ~y)))
+       :or  `(filter (fn [~'m] (or-macro ~y)))
+       `(where* ~args))))
 
 (comment
-  [(e/qb 10
+  [(e/qb 1
          (=>> data
               (where [:and
                       [> :a 0.0]
                       [< :a 50.0]
                       [< :b 0.0]
                       [> :b -50.0]])))
-   (e/qb 10
+   (e/qb 1
          (=>> data
               (filter (fn [m] (> (get m :a) 0.0)))
               (filter (fn [m] (< (get m :a) 50.0)))
               (filter (fn [m] (< (get m :b) 0.0)))
-              (filter (fn [m] (> (get m :b) -50.0)))))])
+              (filter (fn [m] (> (get m :b) -50.0)))))]
+  ;; => [89.73 115.66]
+  )
 
 (defmulti loc
   {:arglists '([x & [y]])}
@@ -143,44 +162,58 @@
   (map k))
 
 (comment
-  (into [] (loc :a) data))
+  (=>> data (loc :a) (take 5))
+  ;; => [-91 58 40 8 -50]
+  )
 
 (defmethod loc [:danzig/collection nil]
   [ks & _]
-  (map #(reduce (fn [acc k] (assoc acc k (get % k))) {} ks)))
+  (map #(persistent! (reduce (fn [acc k] (assoc! acc k (get % k))) (transient {}) ks))))
 
 (comment
-  (e/qb 1 (=>> data (loc [:a :b]))))
+  [(e/qb 1 (=>> data (loc [:a :b])))
+   (e/qb 1 (=>> data (map #(select-keys % [:a :b]))))]
+  ;; => [232.88 439.51]
+  )
 
 (defmethod loc [:danzig/collection :danzig/collection]
   [x & [y & _]]
   (comp (iloc y) (loc x)))
 
 (comment
-  (into [] (loc [:a :b] [0 1]) data))
+  (=>> data (loc [:a :b] [0 1]))
+  ;; => [{:a -91, :b 43} {:a 58, :b 94}]
+  )
 
 (defmulti iloc (fn [x & [y]] [(type x) (type y)]))
 
 (defmethod iloc [:danzig/number nil]
   [x & [_ & _]]
-  (comp (clojure.core/drop (dec x)) (take 1)))
+  (comp (clojure.core/drop x) (take 1)))
 
 (comment
-  (into [] (iloc 0) data))
+  [(e/qb 1e3 (=>> data (iloc 500)))
+   (e/qb 1e3 (nth data 500))]
+  ;; => [26.76 14.45]
+  )
 
 (defmethod iloc [:danzig/number :danzig/number]
   [x & [y & _]]
   (comp (clojure.core/drop (dec x)) (take (- y x))))
 
 (comment
-  (into [] (iloc 2 5) data))
+  (=>> data (iloc 2 5))
+  ;; => [{:a 58, :b 94, :c -70} {:a 40, :b -69, :c 99} {:a 8, :b 85, :c 91}]
+  )
 
 (defmethod iloc [:danzig/collection nil]
   [xs]
   (keep-indexed (fn [idx v] (when ((clojure.core/set xs) idx) v))))
 
 (comment
-  (into [] (iloc [1 3 5]) data))
+  (=>> data (iloc [1 3 5]))
+  ;; => [{:a 58, :b 94, :c -70} {:a 8, :b 85, :c 91} {:a -25, :b -90, :c 48}]
+  )
 
 (defmulti set (fn [x & [y & [z]]] [(type x) (type y) (type z)]))
 
@@ -189,28 +222,36 @@
   (map-indexed (fn [i elem] (if (= i x) y elem))))
 
 (comment
-  (into [] (set 0 {:a nil :b nil :c nil}) (take 5 data)))
+  (=>> data (set 0 {:a nil :b nil :c nil}) (take 2))
+  ;; => [{:a nil, :b nil, :c nil} {:a 58, :b 94, :c -70}]
+  )
 
 (defmethod set [:danzig/number :danzig/keyword :danzig/any]
   [x & [k & [v]]]
   (map-indexed (fn [i m] (if (= i x) (assoc m k v) m))))
 
 (comment
-  (into [] (set 1 :a 999) (take 5 data)))
+  (=>> data (set 0 :a 999) (take 2))
+  ;; => [{:a 999, :b 43, :c 7} {:a 58, :b 94, :c -70}]
+  )
 
 (defmethod set [:danzig/number :danzig/number :danzig/any]
   [x & [y & [v]]]
   (map-indexed (fn [i m] (if (clojure.core/and (>= i x) (< i y)) v m))))
 
 (comment
-  (into [] (set 0 3 0) (take 5 data)))
+  (=>> data (set 0 3 {}) (take 4))
+  ;; => [{} {} {} {:a 8, :b 85, :c 91}]
+  )
 
 (defmethod set [:danzig/keyword :danzig/value nil]
   [x & [y & [_]]]
   (map (fn [m] (assoc m x y))))
 
 (comment
-  (into [] (set :new 0) (take 5 data)))
+  (=>> data (set :new 0) (take 2))
+  ;; => [{:a -91, :b 43, :c 7, :new 0} {:a 58, :b 94, :c -70, :new 0}]
+  )
 
 (defmethod set [:danzig/keyword :danzig/collection nil]
   [k & [[f & ks]]]
@@ -221,16 +262,20 @@
            (assoc m k v)))))
 
 (comment
-  (into [] (set :new [+ :a :b]) (take 10 data)))
+  (=>> data (set :new [+ :a :b]) (take 2))
+  ;; => [{:a -91, :b 43, :c 7, :new -48} {:a 58, :b 94, :c -70, :new 152}]
+  )
 
-(defmulti replace (fn [x & [y & [z]]] [(class x) (class y) (class z)]))
+(defmulti replace (fn [x & [y & [z]]] [(type x) (type y) (type z)]))
 
 (defmethod replace [:danzig/fn :danzig/any nil]
   [pred v]
   (map (fn [m] (if (pred m) v m))))
 
 (comment
-  (into [] (replace even? 0) (range 10)))
+  (=>> (range 10) (replace even? :even))
+  ;; => [:even 1 :even 3 :even 5 :even 7 :even 9]
+  )
 
 (defmethod replace [:danzig/keyword :danzig/fn :danzig/any]
   [k pred v]
@@ -239,25 +284,27 @@
 (prefer-method replace [:danzig/keyword :danzig/fn :danzig/any] [:danzig/keyword :danzig/any nil])
 
 (comment
-  (into [] (replace :a even? 0) (take 5 data)))
+  (=>> data (replace :a even? :even) (take 3))
+  ;; => [{:a -91, :b 43, :c 7} {:a :even, :b 94, :c -70} {:a :even, :b -69, :c 99}]
+  )
 
-(defmulti round (fn [& [x & [y]]] [(type x) (type y)]))
+;; (defmulti round (fn [& [x & [y]]] [(type x) (type y)]))
 
-(defmethod round [nil nil]
-  []
-  (map math/round))
+;; (defmethod round [nil nil]
+;;   []
+;;   (map math/round))
 
-(defmethod round [java.lang.Long nil]
-  [^long nplaces]
-  (map (partial math/round nplaces)))
+;; (defmethod round [java.lang.Long nil]
+;;   [^long nplaces]
+;;   (map (partial math/round nplaces)))
 
-(defmethod round [:danzig/keyword nil]
-  [k]
-  (map #(clojure.core/update % k math/round)))
+;; (defmethod round [:danzig/keyword nil]
+;;   [k]
+;;   (map #(clojure.core/update % k math/round)))
 
-(defmethod round [:danzig/keyword java.lang.Long]
-  [k ^long nplaces]
-  (map #(clojure.core/update % k (partial math/round nplaces))))
+;; (defmethod round [:danzig/keyword java.lang.Long]
+;;   [k ^long nplaces]
+;;   (map #(clojure.core/update % k (partial math/round nplaces))))
 
 (defmulti update (fn [x & [y & [z]]] [(type x) (type y) (type z)]))
 
@@ -267,8 +314,8 @@
 
 (comment
   (do
-    (quick-bench (into [] (update :a #(* 2 %)) data))
-    (quick-bench (into [] (set :a [* :a 2]) data))))
+    (e/qb 1 (into [] (update :a #(* 2 %)) data))
+    (e/qb 1 (into [] (set :a [* :a 2]) data))))
 
 (defmethod update [:danzig/keyword :danzig/fn :danzig/fn]
   [k pred f]
@@ -282,8 +329,8 @@
 
 (comment
   (do
-    (quick-bench (into [] (drop 999995) data))
-    (quick-bench (into [] (clojure.core/drop 999995) data))))
+    (e/qb 10 (into [] (drop 999995) data))
+    (e/qb 10 (into [] (clojure.core/drop 999995) data))))
 
 (defmethod drop [:danzig/number :danzig/number nil]
   [x & [y & _]]
@@ -564,6 +611,44 @@
          {:date (jt/local-date "2019-03-06") :a 2}
          {:date (jt/local-date "2019-06-03") :a 3}]))
 
+(defn ->month-series
+  "Convert series smalest than monht to a month series"
+  ([]
+   (comp
+    (x/by-key (fn [{:keys [date]}] (jt/as date :year :month-of-year))
+              (x/take-last 1))
+    (map second)
+    (x/sort-by :date)))
+  ([data]
+   (loop [[m & data] data
+          p nil
+          r (transient [])]
+     (if m
+       (if (and p (not= (.getMonthValue ^java.time.LocalDate (:date p))
+                        (.getMonthValue ^java.time.LocalDate (:date m))))
+         (recur data m (conj! r p))
+         (recur data m r))
+       (persistent! (conj! r p))))))
+
+(defn ->year-series
+  "Convert series smalest than year to a month year"
+  ([]
+   (comp
+    (x/by-key (fn [{:keys [date]}] (jt/as date :year))
+              (x/take-last 1))
+    (map second)
+    (x/sort-by :date)))
+  ([data]
+   (loop [[m & data] data
+          p          nil
+          r          (transient [])]
+     (if m
+       (if (and p (not= (.getYear ^java.time.LocalDate (:date p))
+                        (.getYear ^java.time.LocalDate (:date m))))
+         (recur data m (conj! r p))
+         (recur data m r))
+       (persistent! (conj! r p))))))
+
 (defn window
   ([n]
    (x/partition n 1))
@@ -595,7 +680,7 @@
   (into [] columns data))
 
 (defn select-columns [ks]
-  (map #(persistent! (reduce (fn [acc k] (assoc acc k (get % k))) (transient {}) ks))))
+  (map #(persistent! (reduce (fn [acc k] (assoc! acc k (get % k))) (transient {}) ks))))
 
 (defn rename-columns [m]
   (map #(clojure.set/rename-keys % m)))

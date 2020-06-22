@@ -1,7 +1,6 @@
 ;; shadow-cljs configuration
-{:deps         true
- :nrepl        {:port 7002}
- :source-paths ["src"]
- :builds       {:repl {:target    :node-script
-                       :main      ribelo.wombat.repl/main
-                       :output-to "dist/wombat.js"}}}
+{:deps   {:aliases [:shadow-cljs]}
+ :nrepl  {:port 7002}
+ :builds {:repl {:target    :node-script
+                 :main      hanse.danzig.repl/main
+                 :output-to "dist/danzig.js"}}}
