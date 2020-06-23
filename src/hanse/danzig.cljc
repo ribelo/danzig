@@ -699,21 +699,21 @@
 (comment
   (into [] (tail) data))
 
-(def describe
-  (comp
-   (x/transjuxt {:ks columns
-                 :xs (x/into [])})
-   (mapcat (fn [{:keys [ks xs]}]
-             (into {}
-                   (map (fn [k]
-                          (x/transjuxt
-                           {k (x/transjuxt {:count (agg/count k)
-                                            :mean  (agg/mean k)
-                                            :std   (agg/std k)
-                                            :min   (agg/min k)
-                                            :max   (agg/max k)})}
-                           xs))
-                        ks))))))
+;; (def describe
+;;   (comp
+;;    (x/transjuxt {:ks columns
+;;                  :xs (x/into [])})
+;;    (mapcat (fn [{:keys [ks xs]}]
+;;              (into {}
+;;                    (map (fn [k]
+;;                           (x/transjuxt
+;;                            {k (x/transjuxt {:count (agg/count k)
+;;                                             :mean  (agg/mean k)
+;;                                             :std   (agg/std k)
+;;                                             :min   (agg/min k)
+;;                                             :max   (agg/max k)})}
+;;                            xs))
+;;                         ks))))))
 
 (comment
   (into {} describe data))
