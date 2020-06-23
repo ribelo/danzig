@@ -430,15 +430,15 @@
   (comp
    (x/by-key f xf)))
 
-(defmethod group-by [:danzig/fn :danzig/map]
-  [f m]
-  (comp
-   (x/by-key f (agg/aggregate m))))
+;; (defmethod group-by [:danzig/fn :danzig/map]
+;;   [f m]
+;;   (comp
+;;    (x/by-key f (agg/aggregate m))))
 
-(defmethod group-by [:danzig/keyword :danzig/map]
-  [k m]
-  (comp
-   (x/by-key k (agg/aggregate m))))
+;; (defmethod group-by [:danzig/keyword :danzig/map]
+;;   [k m]
+;;   (comp
+;;    (x/by-key k (agg/aggregate m))))
 
 (comment
   (into [] (group-by :a {:c :sum}) [{:a 1 :c 1} {:a 1 :c 2} {:a 2 :c 3} {:a 2 :c 4}])
@@ -454,11 +454,11 @@
 (comment
   (into [] (group-by :a (x/into [])) data))
 
-(defmethod group-by [:danzig/collection :danzig/map]
-  [ks m]
-  (println ks)
-  (comp
-   (x/by-key (apply juxt ks) (agg/aggregate m))))
+;; (defmethod group-by [:danzig/collection :danzig/map]
+;;   [ks m]
+;;   (println ks)
+;;   (comp
+;;    (x/by-key (apply juxt ks) (agg/aggregate m))))
 
 (comment
   (into [] (group-by [:a :b] {:a :sum}) data))
