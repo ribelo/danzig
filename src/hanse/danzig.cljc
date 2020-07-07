@@ -321,6 +321,17 @@
   [k pred f]
   (map (fn [m] (if (pred (get m k)) (clojure.core/update m k f) m))))
 
+(defmethod update [:danzig/map nil nil]
+  [mfn]
+  (map (fn [m]
+         (persistent!
+          (reduce-kv
+           (fn [acc k v]
+             (let [f (get mfn k)]
+               (assoc! acc k (cond-> v (identity f) f))))
+           (transient {})
+           m)))))
+
 (defmulti drop (fn [x & [y & z]] [(type x) (type y) (type z)]))
 
 (defmethod drop [:danzig/number nil nil]
