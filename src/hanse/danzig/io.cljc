@@ -5,23 +5,22 @@
    #?(:clj [net.cgrand.xforms.io :as xio])
    #?(:clj [java-time :as jt])
    [hanse.danzig :refer [vecs->maps comp-some]]
-   [clojure.string :as str])
+   [clojure.string :as str]
+   [meander.epsilon :as m])
   (:import
    #?(:clj (clojure.lang Keyword Fn))))
 
-(def ^:private dtype->fn {:long     #?(:clj  #(Long/parseLong ^String %)
-                                       :cljs #(js/parseInt ^String %))
-                          :double   #?(:clj  #(Double/parseDouble ^String %)
-                                       :cljs #(js/parseFloat ^String %))
-                          :date     #?(:clj  #(jt/local-date ^String %)
-                                       :cljs nil)
-                          :datetime #?(:clj  #(jt/local-date-time ^String %)
-                                       :cljs nil)
-                          nil       identity})
 
-(defmulti ^:private parse-dtype (fn [val] (class val)))
-(defmethod ^:private parse-dtype Keyword [key] (dtype->fn key))
-(defmethod ^:private parse-dtype Fn [f] f)
+(defn ^:private dtype->fn [x]
+  (m/match x
+    :long           #(Long/parseLong ^String %)
+    :double         #(Double/parseDouble ^String %)
+    :date           #(jt/local-date ^String %)
+    :datetime       #(jt/local-date-time %)
+    [:date ?y]      #(jt/local-date ?y %)
+    [:datetime ?y]  #(jt/local-date-time ?y %)
+    (m/pred fn? ?x) ?x
+    nil             identity))
 
 (defmulti ^:private add-header (fn [x & _] (class x)))
 
@@ -30,7 +29,7 @@
   (comp
    (x/transjuxt {:xs      (comp (drop (inc i)) (x/into []))
                  :headers (comp-some
-                           (when (<= 1 i) (drop i))
+                           (when (>= i 1) (drop i))
                            (take 1)
                            (when keywordize-headers?
                              (map #(map keyword %)))

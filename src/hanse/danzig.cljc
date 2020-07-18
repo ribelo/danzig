@@ -4,14 +4,15 @@
   (:require
    [net.cgrand.xforms :as x]
    #?(:clj [java-time :as jt])
-   [hanse.danzig.relationship]))
+   [meander.epsilon :as m]
+   [hanse.danzig.relationship]
+   #?(:clj [hanse.danzig.aggregate :as agg])))
 
 (declare iloc)
 
 (comment
   (do
     (require '[taoensso.encore :as e])
-    #?(:clj (require '[criterium.core :refer [quick-bench]]))
     (def data (repeatedly 1000000 (fn [] {:a (* (rand-int 100) (if (e/chance 0.5) 1 -1))
                                           :b (* (rand-int 100) (if (e/chance 0.5) 1 -1))
                                           :c (* (rand-int 100) (if (e/chance 0.5) 1 -1))})))))
@@ -66,10 +67,11 @@
   (map #(zipmap ks %)))
 
 (comment
-  (=>> [[0 0] [1 1] [2 2]] (vecs->maps {:a 0 :b 1}))
+  (e/qb 1e3 (=>> [[0 0] [1 1] [2 2]] (vecs->maps {:a 0 :b 1})))
   ;; => [{:a 0, :b 0} {:a 1, :b 1} {:a 2, :b 2}]
   (=>> [[0 0] [1 1] [2 2]] (vecs->maps [:a :b]))
   ;; => [{:a 0, :b 0} {:a 1, :b 1} {:a 2, :b 2}]
+  (e/qb 1e3 (=>> [[0 0] [1 1] [2 2]] (vecs->maps2 {:a 0 :b 1})))
   )
 
 (defn shape [data]
@@ -171,7 +173,7 @@
   (map #(persistent! (reduce (fn [acc k] (assoc! acc k (get % k))) (transient {}) ks))))
 
 (comment
-  [(e/qb 1 (=>> data (loc [:a :b])))
+  [(e/qb 1e3 (loc [:a :b]))
    (e/qb 1 (=>> data (map #(select-keys % [:a :b]))))]
   ;; => [232.88 439.51]
   )
@@ -441,35 +443,47 @@
   (comp
    (x/by-key f xf)))
 
-;; (defmethod group-by [:danzig/fn :danzig/map]
-;;   [f m]
-;;   (comp
-;;    (x/by-key f (agg/aggregate m))))
+(defmethod group-by [:danzig/fn :danzig/map]
+  [f m]
+  (comp
+   (x/by-key f (agg/aggregate m))))
 
-;; (defmethod group-by [:danzig/keyword :danzig/map]
-;;   [k m]
-;;   (comp
-;;    (x/by-key k (agg/aggregate m))))
+(defmethod group-by [:danzig/keyword :danzig/map]
+  [k m]
+  (comp
+   (x/by-key k (agg/aggregate m))))
 
 (comment
-  (into [] (group-by :a {:c :sum}) [{:a 1 :c 1} {:a 1 :c 2} {:a 2 :c 3} {:a 2 :c 4}])
-  (into [] (group-by :a {:c :sum
-                         :b :sum}) data)
-  (into [] (group-by :a {:b-mean [:b :mean]
-                         :b-sum  [:b :sum]}) data))
+  (=>> [{:a 1 :c 1} {:a 1 :c 2} {:a 2 :c 3} {:a 2 :c 4}] (group-by :a {:c :sum}))
+  (=>> data (group-by :a {:c :sum
+                          :b :sum}))
+  [(e/qb 1 (=>> data (group-by :a {:b-mean [:b :mean]
+                                   :b-sum  [:b :sum]
+                                   :c-mean [:c :mean]
+                                   :c-sum  [:c :sum]})))
+   (e/qb 1 (->> data
+                (clojure.core/group-by :a)
+                (mapv (fn [[v coll]]
+                        (let [b-coll (->> coll (mapv :b))
+                              c-coll (->> coll (mapv :c))]
+                          [v {:b-mean (hanse.rostock.stats/mean b-coll)
+                              :b-sum  (->> b-coll (reduce +))
+                              :c-mean (hanse.rostock.stats/mean c-coll)
+                              :c-sum  (->> c-coll (reduce +))}])))))]
+  ;; => [515.28 531.06])
+  )
 
 (defmethod group-by [:danzig/keyword :danzig/fn]
   [k f]
   (x/by-key k f))
 
 (comment
-  (into [] (group-by :a (x/into [])) data))
+  (=>> data (group-by :a (x/into []))))
 
-;; (defmethod group-by [:danzig/collection :danzig/map]
-;;   [ks m]
-;;   (println ks)
-;;   (comp
-;;    (x/by-key (apply juxt ks) (agg/aggregate m))))
+(defmethod group-by [:danzig/collection :danzig/map]
+  [ks m]
+  (comp
+   (x/by-key (apply juxt ks) (agg/aggregate m))))
 
 (comment
   (into [] (group-by [:a :b] {:a :sum}) data))
@@ -479,7 +493,7 @@
   (x/by-key (apply juxt ks) f))
 
 (comment
-  (into [] (group-by [:a :b] (x/into [])) data))
+  (=>> data (group-by [:a :b] (x/into []))))
 
 (defn value-counts
   ([]
@@ -624,38 +638,38 @@
 
 (defn ->month-series
   "Convert series smalest than monht to a month series"
-  ([]
+  ([k]
    (comp
-    (x/by-key (fn [{:keys [date]}] (jt/as date :year :month-of-year))
+    (x/by-key (fn [m] (jt/as (get m k) :year :month-of-year))
               (x/take-last 1))
     (map second)
-    (x/sort-by :date)))
-  ([data]
+    (x/sort-by k)))
+  ([k data]
    (loop [[m & data] data
           p nil
           r (transient [])]
      (if m
-       (if (and p (not= (.getMonthValue ^java.time.LocalDate (:date p))
-                        (.getMonthValue ^java.time.LocalDate (:date m))))
+       (if (and p (not= (.getMonthValue ^java.time.LocalDate (get p k))
+                        (.getMonthValue ^java.time.LocalDate (get m k))))
          (recur data m (conj! r p))
          (recur data m r))
        (persistent! (conj! r p))))))
 
 (defn ->year-series
-  "Convert series smalest than year to a month year"
-  ([]
+  "Convert series smalest than year to a year series"
+  ([k]
    (comp
-    (x/by-key (fn [{:keys [date]}] (jt/as date :year))
+    (x/by-key (fn [m] (jt/as (get m k) :year))
               (x/take-last 1))
     (map second)
-    (x/sort-by :date)))
-  ([data]
+    (x/sort-by k)))
+  ([k data]
    (loop [[m & data] data
           p          nil
           r          (transient [])]
      (if m
-       (if (and p (not= (.getYear ^java.time.LocalDate (:date p))
-                        (.getYear ^java.time.LocalDate (:date m))))
+       (if (and p (not= (.getYear ^java.time.LocalDate (get p k))
+                        (.getYear ^java.time.LocalDate (get m k))))
          (recur data m (conj! r p))
          (recur data m r))
        (persistent! (conj! r p))))))
@@ -725,12 +739,3 @@
 ;;                                             :max   (agg/max k)})}
 ;;                            xs))
 ;;                         ks))))))
-
-(comment
-  (into {} describe data))
-
-(defn sort-by
-  ([k]
-   (x/sort-by k))
-  ([k f]
-   (x/sort-by k f)))
