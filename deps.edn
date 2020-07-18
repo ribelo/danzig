@@ -2,6 +2,6 @@
  :deps    {net.cgrand/xforms    {:mvn/version "0.19.2"}
            clojure.java-time    {:mvn/version "0.3.2"}
            ribelo.hansa/rostock {:git/url "https://github.com/ribelo/rostock"
-                                 :sha     "fde8c0a0195ed370370e7cda1a5a3fcb1efd3eaa"}}
- :aliases {:cljs {:extra-deps {thheller/shadow-cljs {:mvn/version "2.8.89"}
-                               com.taoensso/encore  {:mvn/version "2.119.0"}}}}}
+                                 :sha     "fde8c0a0195ed370370e7cda1a5a3fcb1efd3eaa"}
+           meander/epsilon      {:mvn/version "0.0.469"}}
+ :aliases {:cljs {:extra-deps {thheller/shadow-cljs {:mvn/version "2.8.89"}}}}}
