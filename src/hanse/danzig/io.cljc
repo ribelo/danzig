@@ -6,21 +6,38 @@
    #?(:clj [java-time :as jt])
    [hanse.danzig :refer [vecs->maps comp-some]]
    [clojure.string :as str]
-   [meander.epsilon :as m])
+   [meander.epsilon :as mr])
   (:import
    #?(:clj (clojure.lang Keyword Fn))))
 
-
 (defn ^:private dtype->fn [x]
-  (m/match x
+  (mr/match x
     :long           #(Long/parseLong ^String %)
     :double         #(Double/parseDouble ^String %)
     :date           #(jt/local-date ^String %)
     :datetime       #(jt/local-date-time %)
     [:date ?y]      #(jt/local-date ?y %)
     [:datetime ?y]  #(jt/local-date-time ?y %)
-    (m/pred fn? ?x) ?x
+    (mr/pred fn? ?x) ?x
     nil             identity))
+
+(defn ^:private add-header [x opts]
+  (m/match [x opts]
+    (m/and [?x {:keywordize-keys ?keywordize
+                :key-fn          ?key-fn}]
+           (m/pred number? ?x)
+           (m/pred boolean? ?keywordize)
+           (m/pred fn? ?keywordize))
+    (comp
+     (x/transjuxt {:xs      (comp (drop (inc i)) (x/into []))
+                   :headers (comp-some
+                             (when (>= i 1) (drop i))
+                             (take 1)
+                             (when keywordize-headers?
+                               (map #(map keyword %)))
+                             (map #(map vector % (range))))})
+     (mapcat (fn [{:keys [xs headers]}]
+               (into [] (vecs->maps (into {} headers)) xs))))))
 
 (defmulti ^:private add-header (fn [x & _] (class x)))
 
@@ -36,32 +53,6 @@
                            (map #(map vector % (range))))})
    (mapcat (fn [{:keys [xs headers]}]
              (into [] (vecs->maps (into {} headers)) xs)))))
-
-(defmethod ^:private add-header #?(:clj java.lang.Long :cljs js/Number)
-  [i & [keywordize-headers?]]
-  (fn [rf]
-    (let [n_      (volatile! 0)
-          headers_ (volatile! ::none)]
-      (fn
-        ([] (rf))
-        ([acc] (rf acc))
-        ([acc x]
-         (cond
-           (and (identical? @headers_ ::none) (< @n_ i))
-           (do
-             (vswap! n_ inc)
-             acc)
-
-           (identical? @n_ i)
-           (let [ks (cond->> x
-                      keywordize-headers?
-                      (mapv #(-> % (str/trim) (str/lower-case) (str/replace " " "-") (str/replace "\"" "") keyword)))]
-             (vswap! n_ inc)
-             (vreset! headers_ ks)
-             acc)
-
-           :else
-           (rf acc (into {} (map vector @headers_ x)))))))))
 
 (defmethod ^:private add-header clojure.lang.IPersistentMap
   [m & _]
@@ -96,9 +87,10 @@
                   (when quote (remove-quote quote))
                   (when parse
                     (map (fn [m]
-                           (reduce-kv (fn [acc k v]
-                                        (update acc k (parse-dtype v)))
-                                      m parse))))))))
+                           (reduce-kv
+                            (fn [acc k v]
+                              (update acc k (dtype->fn v)))
+                            m parse))))))))
      ([path]
       (read-csv path {}))))
 
@@ -107,26 +99,37 @@
      ([path data {:keys [sep add-headers? add-index? encoding format]
                   :or   {sep          ","
                          add-headers? true
-                         add-index?   true
+                         add-index?   false
                          encoding     "utf8"}}]
-      (xio/lines-out
-       path
-       (comp-some
-        (when add-index?
-          (map-indexed #(merge {:_index %1} %2)))
-        (when add-headers?
-          (comp
-           (x/transjuxt {:xs      (comp (map vals) (x/into []))
-                         :headers (comp (take 1) (map keys))})
-           (mapcat (fn [{:keys [xs headers]}]
-                     (into [headers] xs)))))
-        (when format
-          (map (fn [m]
-                 (reduce-kv (fn [acc k f]
+      (->> data
+           (into []
+                 (comp-some
+                  (map
+                   (fn [m]
+                     (persistent!
+                      (reduce-kv
+                       (fn [acc k v]
+                         (assoc! acc (str k) v))
+                       (transient {})
+                       m))))
+                  (when add-index?
+                    (map-indexed #(merge {" idx" %1} %2)))
+                  (if add-headers?
+                    (comp
+                     (x/transjuxt {:xs      (comp (map #(into (sorted-map) %)) (map vals) (x/into []))
+                                   :headers (comp (take 1) (map #(into (sorted-map) %)) (map keys))})
+                     (mapcat (fn [{:keys [xs headers]}]
+                               (into [headers] xs))))
+                    (comp
+                     (map #(into (sorted-map) %))
+                     (map vals)))
+                  (when format
+                    (map (fn [m]
+                           (reduce-kv
+                            (fn [acc k f]
                               (update acc k f))
                             m format))))
-        (map #(clojure.string/join sep %)))
-       data
-       :encoding encoding))
+                  (map #(clojure.string/join sep %))
+                  ))))
      ([path data]
       (to-csv path data {}))))
