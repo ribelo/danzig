@@ -8,8 +8,6 @@
    [hanse.danzig.relationship]
    #?(:clj [hanse.danzig.aggregate :as agg])))
 
-(declare iloc)
-
 (comment
   (do
     (require '[taoensso.encore :as e])
@@ -56,23 +54,17 @@
 (defn comp-some [& fns]
   (apply comp (filter identity fns)))
 
-(defmulti vecs->maps (fn [ks] (type ks)))
-
-(defmethod vecs->maps :danzig/map
-  [ks]
-  (map #(persistent! (reduce-kv (fn [acc k v] (assoc! acc k (nth % v))) (transient {}) ks))))
-
-(defmethod vecs->maps :danzig/collection
-  [ks]
-  (map #(zipmap ks %)))
+(defn vecs->maps [ks]
+  (m/match ks
+    (m/pred map?)
+    (map #(persistent! (reduce-kv (fn [acc k v] (assoc! acc k (nth % v))) (transient {}) ks)))
+    (m/pred vector? ?x)
+    (map #(zipmap ?x %))))
 
 (comment
-  (e/qb 1e3 (=>> [[0 0] [1 1] [2 2]] (vecs->maps {:a 0 :b 1})))
+  (=>> [[0 0] [1 1] [2 2]] (vecs->maps {:a 0 :b 1}))
   ;; => [{:a 0, :b 0} {:a 1, :b 1} {:a 2, :b 2}]
-  (=>> [[0 0] [1 1] [2 2]] (vecs->maps [:a :b]))
-  ;; => [{:a 0, :b 0} {:a 1, :b 1} {:a 2, :b 2}]
-  (e/qb 1e3 (=>> [[0 0] [1 1] [2 2]] (vecs->maps2 {:a 0 :b 1})))
-  )
+  (=>> [[0 0] [1 1] [2 2]] (vecs->maps [:a :b])))
 
 (defn shape [data]
   [(count data) (count (first data))])
@@ -82,49 +74,37 @@
   ;; => [1000000 3]
   )
 
-(defmulti row
-  "make a map, with given kays and values"
-  {:arglists '([ks vs])}
-  (fn [x y] [(type x) (type y)]))
-
-(defmethod row [:danzig/collection :danzig/collection]
-  [ks vs]
-  (zipmap ks vs))
+(defn row [ks vs]
+  (m/match [ks vs]
+    [(m/pred coll?) (m/pred coll?)]
+    (zipmap ks vs)))
 
 (comment
   (row [:a :b :c] [1 2 3])
   ;; => {:a 1, :b 2, :c 3}
   )
 
-(defmulti where*
-  {:arglists '([[x & [y & [z]]]])}
-  (fn [[x & [y & [z]]]] [(type x) (type y) (type z)]))
-
-(defmethod where* [:danzig/fn :danzig/column-name :danzig/any]
-  [[f & [k & v]]]
-  (filter (fn [m] (apply f (into [(get m k)] v)))))
+(defn where* [args]
+  (m/match args
+    ;; [:> :a :b]
+    [(m/pred fn? ?f)
+     (m/pred (some-fn keyword? string?) ?k)
+     (m/pred (some-fn keyword? string?) ?j)]
+    (filter (fn [m] (?f (get m ?k) (get m ?j))))
+    ;; [:> :a 1]
+    [(m/pred fn? ?f)
+     (m/pred (some-fn keyword? string?) ?k)
+     (m/some ?v)]
+    (filter (fn [m] (?f (get m ?k) ?v)))
+    ;; [even? :a]
+    [(m/pred fn? ?f)
+     (m/pred (some-fn keyword? string?) ?k)]
+    (filter (fn [m] (?f (get m ?k))))))
 
 (comment
   (=>> data (where* [> :a 1.0]) (take 1))
   ;; => [{:a 58, :b 94, :c -70}]
   )
-
-(defmethod where* [:danzig/fn :danzig/column-name :danzig/column-name]
-  [[f & [k & ks]]]
-  (filter (fn [m] (apply f (reduce (fn [acc k] (conj acc (get m k))) [] (into [k] ks))))))
-
-#?(:clj (prefer-method where*
-                       [:danzig/fn :danzig/column-name :danzig/column-name]
-                       [:danzig/fn :danzig/column-name :danzig/any]))
-
-(comment
-  (=>> data (where* [> :a :b]) (take 1))
-  ;; => [{:a 40, :b -69, :c 99}]
-  )
-
-(defmethod where* [:danzig/fn :danzig/column-name nil]
-  [[f & [k]]]
-  (filter (fn [m] (f (get m k)))))
 
 (comment
   (=>> data (where* [even? :a]) (take 1))
@@ -155,67 +135,70 @@
   ;; => [89.73 115.66]
   )
 
-(defmulti loc
-  {:arglists '([x & [y]])}
-  (fn [x & [y]] [(type x) (type y)]))
+(defn row-count []
+  x/count)
 
-(defmethod loc [:danzig/keyword nil]
-  [k & _]
-  (map k))
+(defn column-count []
+  (comp (take 1) (mapcat keys) x/count))
 
-(comment
-  (=>> data (loc :a) (take 5))
-  ;; => [-91 58 40 8 -50]
-  )
+(defn shape []
+  (comp (x/transjuxt [(row-count) (column-count)]) (mapcat identity)))
 
-(defmethod loc [:danzig/collection nil]
-  [ks & _]
-  (map #(persistent! (reduce (fn [acc k] (assoc! acc k (get % k))) (transient {}) ks))))
+(defn column-names [& args]
+  (m/match args
+    ;; all
+    (m/or (:all) nil (m/pred empty? args))
+    (comp (take 1) (mapcat keys))
+    ;; regex
+    ((m/pred #(instance? java.util.regex.Pattern %) ?x) & _)
+    (comp (take 1) (mapcat keys) (filter #(re-find ?x (str %))))
+    ;; keys
+    (!ks ...)
+    (comp (take 1) (mapcat keys) (filter (into #{} !ks)))))
 
-(comment
-  [(e/qb 1e3 (loc [:a :b]))
-   (e/qb 1 (=>> data (map #(select-keys % [:a :b]))))]
-  ;; => [232.88 439.51]
-  )
+(defn select-columns [& args]
+  (m/match args
+    ;; all
+    (m/or (:all) nil (m/pred empty? args))
+    (map identity)
+    ;; regex
+    ((m/pred #(instance? java.util.regex.Pattern %) ?x) & _)
+    (comp (x/transjuxt [(column-names ?x) (x/into [])])
+          (map (fn [[ks coll]] (=>> coll (select-columns ks)))))
+    ;; keys
+    (!ks ...)
+    (map #(persistent! (reduce (fn [acc k] (assoc! acc k (get % k))) (transient {}) !ks)))))
 
-(defmethod loc [:danzig/collection :danzig/collection]
-  [x & [y & _]]
-  (comp (iloc y) (loc x)))
+(defn drop-columns [& args]
+  (m/match args
+    ;; any
+    (m/or nil (m/pred empty? args))
+    (map identity)
+    ;; regex
+    ((m/pred #(instance? java.util.regex.Pattern %) ?x) & _)
+    (comp (x/transjuxt [(column-names ?x) (x/into [])])
+          (map (fn [[ks coll]] (=>> coll (drop-columns ks)))))
+    ;; keys
+    (!ks ...)
+    (map #(persistent! (reduce (fn [acc k] (dissoc! acc k)) (transient %) !ks)))))
 
-(comment
-  (=>> data (loc [:a :b] [0 1]))
-  ;; => [{:a -91, :b 43} {:a 58, :b 94}]
-  )
+(defn rename-columns [m]
+  (map #(clojure.set/rename-keys % m)))
 
-(defmulti iloc (fn [x & [y]] [(type x) (type y)]))
+(defn add-or-replace-column [& args]
+  (m/match args
+    ;; key [fn keys]
+    ((m/and ?k (m/pred (some-fn keyword? string?)))
+     [(m/pred fn? ?f) . !ks ...])
+    (map (fn [m] (let [args (mapv #(get m %) !ks)
+                       v (apply ?f args)]
+                   (assoc m ?k v))))
+    ;; key val
+    ;; ((m/and ?k (m/pred (some-fn keyword? string?))) ?v)
+    ;; (map (fn [m] (assoc m ?k ?v)))
+    ))
 
-(defmethod iloc [:danzig/number nil]
-  [x & [_ & _]]
-  (comp (clojure.core/drop x) (take 1)))
-
-(comment
-  [(e/qb 1e3 (=>> data (iloc 500)))
-   (e/qb 1e3 (nth data 500))]
-  ;; => [26.76 14.45]
-  )
-
-(defmethod iloc [:danzig/number :danzig/number]
-  [x & [y & _]]
-  (comp (clojure.core/drop (dec x)) (take (- y x))))
-
-(comment
-  (=>> data (iloc 2 5))
-  ;; => [{:a 58, :b 94, :c -70} {:a 40, :b -69, :c 99} {:a 8, :b 85, :c 91}]
-  )
-
-(defmethod iloc [:danzig/collection nil]
-  [xs]
-  (keep-indexed (fn [idx v] (when ((clojure.core/set xs) idx) v))))
-
-(comment
-  (=>> data (iloc [1 3 5]))
-  ;; => [{:a 58, :b 94, :c -70} {:a 8, :b 85, :c 91} {:a -25, :b -90, :c 48}]
-  )
+(e/qb 10 (=>> data (add-or-replace-column :new [+ :a :b])))
 
 (defmulti set (fn [x & [y & [z]]] [(type x) (type y) (type z)]))
 
@@ -264,7 +247,7 @@
            (assoc m k v)))))
 
 (comment
-  (=>> data (set :new [+ :a :b]) (take 2))
+  (e/qb 10 (=>> data (set :new [+ :a :b])))
   ;; => [{:a -91, :b 43, :c 7, :new -48} {:a 58, :b 94, :c -70, :new 152}]
   )
 
@@ -704,11 +687,7 @@
 (comment
   (into [] columns data))
 
-(defn select-columns [ks]
-  (map #(persistent! (reduce (fn [acc k] (assoc! acc k (get % k))) (transient {}) ks))))
 
-(defn rename-columns [m]
-  (map #(clojure.set/rename-keys % m)))
 
 (defn head
   ([] (head 5))

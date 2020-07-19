@@ -5,58 +5,40 @@
    #?(:clj [net.cgrand.xforms.io :as xio])
    #?(:clj [java-time :as jt])
    [hanse.danzig :refer [vecs->maps comp-some]]
-   [clojure.string :as str]
-   [meander.epsilon :as mr])
+   [meander.epsilon :as m]
+   [clojure.string :as str])
   (:import
    #?(:clj (clojure.lang Keyword Fn))))
 
 (defn ^:private dtype->fn [x]
-  (mr/match x
+  (m/match x
     :long           #(Long/parseLong ^String %)
     :double         #(Double/parseDouble ^String %)
     :date           #(jt/local-date ^String %)
     :datetime       #(jt/local-date-time %)
     [:date ?y]      #(jt/local-date ?y %)
     [:datetime ?y]  #(jt/local-date-time ?y %)
-    (mr/pred fn? ?x) ?x
+    (m/pred fn? ?x) ?x
     nil             identity))
 
 (defn ^:private add-header [x opts]
   (m/match [x opts]
-    (m/and [?x {:keywordize-keys ?keywordize
-                :key-fn          ?key-fn}]
-           (m/pred number? ?x)
-           (m/pred boolean? ?keywordize)
-           (m/pred fn? ?keywordize))
+    [(m/and ?i (m/pred int? ?i))
+     (m/and
+      {:keywordize-keys (m/and ?keywordize (m/pred (some-fn nil? boolean?)))
+       :key-fn          (m/and ?key-fn (m/pred (some-fn nil? fn?)))})]
     (comp
-     (x/transjuxt {:xs      (comp (drop (inc i)) (x/into []))
+     (x/transjuxt {:xs      (comp (drop (inc ?i)) (x/into []))
                    :headers (comp-some
-                             (when (>= i 1) (drop i))
+                             (when (>= ?i 1) (drop ?i))
                              (take 1)
-                             (when keywordize-headers?
+                             (when ?keywordize
                                (map #(map keyword %)))
                              (map #(map vector % (range))))})
      (mapcat (fn [{:keys [xs headers]}]
-               (into [] (vecs->maps (into {} headers)) xs))))))
-
-(defmulti ^:private add-header (fn [x & _] (class x)))
-
-(defmethod ^:private add-header #?(:clj java.lang.Long :cljs js/Number)
-  [i & [keywordize-headers?]]
-  (comp
-   (x/transjuxt {:xs      (comp (drop (inc i)) (x/into []))
-                 :headers (comp-some
-                           (when (>= i 1) (drop i))
-                           (take 1)
-                           (when keywordize-headers?
-                             (map #(map keyword %)))
-                           (map #(map vector % (range))))})
-   (mapcat (fn [{:keys [xs headers]}]
-             (into [] (vecs->maps (into {} headers)) xs)))))
-
-(defmethod ^:private add-header clojure.lang.IPersistentMap
-  [m & _]
-  (vecs->maps m))
+               (into [] (vecs->maps (into {} headers)) xs))))
+    [(m/pred map? ?x) _]
+    (vecs->maps ?x)))
 
 (defn remove-quote [q]
   (fn [rf]
@@ -73,17 +55,17 @@
 
 #?(:clj
    (defn read-csv
-     ([path {:keys [sep quote drop-lines header encoding keywordize-headers? parse]
+     ([path {:keys [sep quote header-row? header encoding keywordize-headers? parse]
              :or   {sep                 ","
-                    drop-lines          nil
+                    header-row?         false
                     encoding            "utf-8"
-                    keywordize-headers? false}}]
+                    keywordize-headers? false}
+             :as   opts}]
       (->> (xio/lines-in path :encoding encoding)
            (into []
                  (comp-some
-                  (when drop-lines (drop drop-lines))
-                  (map #(clojure.string/split % (re-pattern sep)))
-                  (when header (add-header header keywordize-headers?))
+                  (when header-row? (drop 1))
+                  (map #(clojure.string/split % (re-pattern sep))) (when header (add-header header opts))
                   (when quote (remove-quote quote))
                   (when parse
                     (map (fn [m]
@@ -129,7 +111,6 @@
                             (fn [acc k f]
                               (update acc k f))
                             m format))))
-                  (map #(clojure.string/join sep %))
-                  ))))
+                  (map #(clojure.string/join sep %))))))
      ([path data]
       (to-csv path data {}))))
