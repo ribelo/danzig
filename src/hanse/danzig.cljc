@@ -6,6 +6,7 @@
    #?(:clj [java-time :as jt])
    [meander.epsilon :as m]
    [hanse.danzig.relationship]
+   [hanse.rostock.math :as math]
    #?(:clj [hanse.danzig.aggregate :as agg])))
 
 (comment
@@ -65,14 +66,6 @@
   (=>> [[0 0] [1 1] [2 2]] (vecs->maps {:a 0 :b 1}))
   ;; => [{:a 0, :b 0} {:a 1, :b 1} {:a 2, :b 2}]
   (=>> [[0 0] [1 1] [2 2]] (vecs->maps [:a :b])))
-
-(defn shape [data]
-  [(count data) (count (first data))])
-
-(comment
-  (shape data)
-  ;; => [1000000 3]
-  )
 
 (defn row [ks vs]
   (m/match [ks vs]
@@ -191,131 +184,96 @@
     ((m/and ?k (m/pred (some-fn keyword? string?)))
      [(m/pred fn? ?f) . !ks ...])
     (map (fn [m] (let [args (mapv #(get m %) !ks)
-                       v (apply ?f args)]
+                       v    (apply ?f args)]
                    (assoc m ?k v))))
+    ;; key coll
+    ((m/and ?k (m/pred (some-fn keyword? string?)))
+     (m/pred coll? ?coll))
+    (let [xs (volatile! (seq ?coll))]
+      (fn [xf]
+        (fn
+          ([] (xf))
+          ([acc] (xf acc))
+          ([acc e]
+           (if-let [v (first @xs)]
+             (do (vswap! xs next)
+                 (xf acc (assoc e ?k v)))
+             (ensure-reduced acc))))))
     ;; key val
-    ;; ((m/and ?k (m/pred (some-fn keyword? string?))) ?v)
-    ;; (map (fn [m] (assoc m ?k ?v)))
-    ))
+    ((m/and ?k (m/pred (some-fn keyword? string?))) ?v)
+    (map (fn [m] (assoc m ?k ?v)))))
 
-(e/qb 10 (=>> data (add-or-replace-column :new [+ :a :b])))
-
-(defmulti set (fn [x & [y & [z]]] [(type x) (type y) (type z)]))
-
-(defmethod set [:danzig/number :danzig/map nil]
-  [x & [y & [_ & _]]]
-  (map-indexed (fn [i elem] (if (= i x) y elem))))
-
-(comment
-  (=>> data (set 0 {:a nil :b nil :c nil}) (take 2))
-  ;; => [{:a nil, :b nil, :c nil} {:a 58, :b 94, :c -70}]
-  )
-
-(defmethod set [:danzig/number :danzig/keyword :danzig/any]
-  [x & [k & [v]]]
-  (map-indexed (fn [i m] (if (= i x) (assoc m k v) m))))
-
-(comment
-  (=>> data (set 0 :a 999) (take 2))
-  ;; => [{:a 999, :b 43, :c 7} {:a 58, :b 94, :c -70}]
-  )
-
-(defmethod set [:danzig/number :danzig/number :danzig/any]
-  [x & [y & [v]]]
-  (map-indexed (fn [i m] (if (clojure.core/and (>= i x) (< i y)) v m))))
-
-(comment
-  (=>> data (set 0 3 {}) (take 4))
-  ;; => [{} {} {} {:a 8, :b 85, :c 91}]
-  )
-
-(defmethod set [:danzig/keyword :danzig/value nil]
-  [x & [y & [_]]]
-  (map (fn [m] (assoc m x y))))
-
-(comment
-  (=>> data (set :new 0) (take 2))
-  ;; => [{:a -91, :b 43, :c 7, :new 0} {:a 58, :b 94, :c -70, :new 0}]
-  )
-
-(defmethod set [:danzig/keyword :danzig/collection nil]
-  [k & [[f & ks]]]
-  (map (fn [m]
-         (let [args (persistent!
-                     (reduce (fn [acc k] (conj! acc (if (keyword? k) (get m k) k))) (transient []) ks))
-               v    (apply f args)]
-           (assoc m k v)))))
-
-(comment
-  (e/qb 10 (=>> data (set :new [+ :a :b])))
-  ;; => [{:a -91, :b 43, :c 7, :new -48} {:a 58, :b 94, :c -70, :new 152}]
-  )
-
-(defmulti replace (fn [x & [y & [z]]] [(type x) (type y) (type z)]))
-
-(defmethod replace [:danzig/fn :danzig/any nil]
-  [pred v]
-  (map (fn [m] (if (pred m) v m))))
-
-(comment
-  (=>> (range 10) (replace even? :even))
-  ;; => [:even 1 :even 3 :even 5 :even 7 :even 9]
-  )
-
-(defmethod replace [:danzig/keyword :danzig/fn :danzig/any]
-  [k pred v]
-  (map (fn [m] (if (pred (get m k)) (assoc m k v) m))))
-
-(prefer-method replace [:danzig/keyword :danzig/fn :danzig/any] [:danzig/keyword :danzig/any nil])
+(defn replace [& args]
+  (m/match args
+    ;; fn val
+    ((m/and ?pred (m/pred fn?)) ?v)
+    (map (fn [m] (if (?pred m) ?v m)))
+    ;; k fn val
+    ((m/and ?k (m/pred (some-fn keyword? string?)))
+     (m/and ?pred (m/pred fn?)) ?v)
+    (map (fn [m] (if (?pred (get m ?k)) (assoc m ?k ?v) m)))))
 
 (comment
   (=>> data (replace :a even? :even) (take 3))
   ;; => [{:a -91, :b 43, :c 7} {:a :even, :b 94, :c -70} {:a :even, :b -69, :c 99}]
   )
 
-;; (defmulti round (fn [& [x & [y]]] [(type x) (type y)]))
+(defn update [& args]
+  (m/match args
+    ;; k fn
+    ((m/and ?k (m/pred (some-fn keyword? string?)))
+     (m/and ?f (m/pred fn?)))
+    (map (fn [m] (clojure.core/update m ?k ?f)))
+    ;; k pred fn
+    ((m/and ?k (m/pred (some-fn keyword? string?)))
+     (m/and ?pred (m/pred fn?))
+     (m/and ?f (m/pred fn?)))
+    (map (fn [m] (if (?pred (get m ?k)) (clojure.core/update m ?k ?f) m)))
+    ;; {k f}
+    ((m/pred map? ?mfn))
+    (map (fn [m]
+           (persistent!
+            (reduce-kv
+             (fn [acc k v]
+               (let [f (get ?mfn k)]
+                 (assoc! acc k (cond-> v (identity f) f))))
+             (transient {})
+             m))))))
 
-;; (defmethod round [nil nil]
-;;   []
-;;   (map math/round))
+(defn drop [& args]
+  (m/match args
+    ;; is
+    ((m/and (m/pred number? ?x)) (m/and (m/pred number? ?y)))
+    (keep-indexed (fn [i m] (when (clojure.core/and (>= i ?x) (< i ?y)) m)))
+    ;; [is]
+    ([(m/and (m/pred number? !ks)) ...])
+    (let [?xs (into #{} !ks)]
+      (keep-indexed (fn [i m] (when-not (contains? ?xs i) m))))
+    ;; ks
+    ((m/pred (some-fn keyword? string?) !ks) ...)
+    (map (fn [m] (apply dissoc m !ks)))
+    ;; [ks]
+    ([(m/pred (some-fn keyword? string?) !ks) ...])
+    (map (fn [m] (apply dissoc m !ks)))
+    ;; fn
+    ((m/pred fn? ?f))
+    (filter ?f)
+    ;; k fn
+    ((m/pred (some-fn keyword? string?) ?k) (m/pred fn? f))
+    (filter (fn []))
+    ))
 
-;; (defmethod round [java.lang.Long nil]
-;;   [^long nplaces]
-;;   (map (partial math/round nplaces)))
+(m/defsyntax strict-map [x]
+  (m/match x
+    {} (reduce-kv
+        (fn [acc k v]
+          (assoc acc k `(m/some v)))
+        {}
+        x)
+    _ `(m/and {} ~x)))
 
-;; (defmethod round [:danzig/keyword nil]
-;;   [k]
-;;   (map #(clojure.core/update % k math/round)))
-
-;; (defmethod round [:danzig/keyword java.lang.Long]
-;;   [k ^long nplaces]
-;;   (map #(clojure.core/update % k (partial math/round nplaces))))
-
-(defmulti update (fn [x & [y & [z]]] [(type x) (type y) (type z)]))
-
-(defmethod update [:danzig/keyword :danzig/fn nil]
-  [k f]
-  (map (fn [m] (clojure.core/update m k f))))
-
-(comment
-  (do
-    (e/qb 1 (into [] (update :a #(* 2 %)) data))
-    (e/qb 1 (into [] (set :a [* :a 2]) data))))
-
-(defmethod update [:danzig/keyword :danzig/fn :danzig/fn]
-  [k pred f]
-  (map (fn [m] (if (pred (get m k)) (clojure.core/update m k f) m))))
-
-(defmethod update [:danzig/map nil nil]
-  [mfn]
-  (map (fn [m]
-         (persistent!
-          (reduce-kv
-           (fn [acc k v]
-             (let [f (get mfn k)]
-               (assoc! acc k (cond-> v (identity f) f))))
-           (transient {})
-           m)))))
+(m/match {:a {:b 1}}
+  {:a {strict-map ?x}} ?x)
 
 (defmulti drop (fn [x & [y & z]] [(type x) (type y) (type z)]))
 
