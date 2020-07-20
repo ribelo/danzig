@@ -162,19 +162,6 @@
     (!ks ...)
     (map #(persistent! (reduce (fn [acc k] (assoc! acc k (get % k))) (transient {}) !ks)))))
 
-(defn drop-columns [& args]
-  (m/match args
-    ;; any
-    (m/or nil (m/pred empty? args))
-    (map identity)
-    ;; regex
-    ((m/pred #(instance? java.util.regex.Pattern %) ?x) & _)
-    (comp (x/transjuxt [(column-names ?x) (x/into [])])
-          (map (fn [[ks coll]] (=>> coll (drop-columns ks)))))
-    ;; keys
-    (!ks ...)
-    (map #(persistent! (reduce (fn [acc k] (dissoc! acc k)) (transient %) !ks)))))
-
 (defn rename-columns [m]
   (map #(clojure.set/rename-keys % m)))
 
@@ -242,7 +229,13 @@
 
 (defn drop [& args]
   (m/match args
-    ;; is
+    ;; none
+    (m/or (m/pred empty?) (m/pred nil?))
+    (map identity)
+    ;; i
+    ((m/pred number? ?x))
+    (clojure.core/drop ?x)
+    ;; i-j
     ((m/and (m/pred number? ?x)) (m/and (m/pred number? ?y)))
     (keep-indexed (fn [i m] (when (clojure.core/and (>= i ?x) (< i ?y)) m)))
     ;; [is]
@@ -257,114 +250,63 @@
     (map (fn [m] (apply dissoc m !ks)))
     ;; fn
     ((m/pred fn? ?f))
-    (filter ?f)
+    (remove ?f)
     ;; k fn
-    ((m/pred (some-fn keyword? string?) ?k) (m/pred fn? f))
-    (filter (fn []))
+    ((m/pred (some-fn keyword? string?) ?k) (m/pred fn? ?f))
+    (remove (fn [m] (?f (get m ?k))))
+    ;; regex
+    ((m/pred #(instance? java.util.regex.Pattern %) ?x) & _)
+    (comp (x/transjuxt [(column-names ?x) (x/into [])])
+          (map (fn [[ks coll]] (=>> coll (drop ks)))))
     ))
-
-(m/defsyntax strict-map [x]
-  (m/match x
-    {} (reduce-kv
-        (fn [acc k v]
-          (assoc acc k `(m/some v)))
-        {}
-        x)
-    _ `(m/and {} ~x)))
-
-(m/match {:a {:b 1}}
-  {:a {strict-map ?x}} ?x)
-
-(defmulti drop (fn [x & [y & z]] [(type x) (type y) (type z)]))
-
-(defmethod drop [:danzig/number nil nil]
-  [x & _]
-  (clojure.core/drop x))
 
 (comment
   (do
     (e/qb 10 (into [] (drop 999995) data))
     (e/qb 10 (into [] (clojure.core/drop 999995) data))))
 
-(defmethod drop [:danzig/number :danzig/number nil]
-  [x & [y & _]]
-  (keep-indexed (fn [i m] (when (clojure.core/and (>= i x) (< i y)) m))))
-
 (comment
   (into [] (drop 0 4) (take 5 data)))
-
-(defmethod drop [:danzig/collection nil nil]
-  [xs & _]
-  (let [set' (clojure.core/set xs)]
-    (keep-indexed (fn [i m] (when-not (contains? set' i) m)))))
 
 (comment
   (into [] (drop [0 2]) (take 5 data)))
 
-(defmethod drop [:danzig/keyword nil nil]
-  [x & _]
-  (map #(dissoc % x)))
-
 (comment
   (into [] (drop :a) (take 5 data)))
-
-(defmethod drop [:danzig/keyword :danzig/keyword nil]
-  [x & [y]]
-  (map #(dissoc % x y)))
-
-(defmethod drop [:danzig/keyword :danzig/keyword :danzig/seq]
-  [x & [y & z]]
-  (map #(apply dissoc % (conj z y x))))
 
 (comment
   (into [] (drop :a :b :c :d) (take 5 data)))
 
-(defmethod drop [:danzig/keyword :danzig/fn nil]
-  [k & [pred & _]]
-  (remove #(pred (get % k))))
-
 (comment
   (into [] (drop :a neg?) data))
-
-(defmethod drop [:danzig/fn nil nil]
-  [pred & _]
-  (remove pred))
 
 (comment
   (into [] (drop even?) (range 10)))
 
-(defmulti dropna (fn [& {:keys [axis]}] axis))
-
-(defmethod dropna 0
-  [& _]
-  (filter #(every? identity (vals %))))
-
-(comment
-  (into [] (dropna :axis 0) [{:a 1 :b 1} {:a 2 :b nil} {:a 3 :b 3}]))
-
-(defmethod dropna 1
-  [& _]
-  (let [vks     (volatile! ::none)
-        drop-ks (volatile! #{})]
-    (comp
-     (x/transjuxt {:ks (comp (take 1) (mapcat keys) (x/into []))
-                   :xs (x/into [])})
-     (mapcat (fn [{:keys [ks xs]}]
-               (when (identical? @vks ::none)
-                 (vreset! vks ks)
-                 (doseq [k ks]
-                   (when-not (every? identity (map k xs))
-                     (vswap! drop-ks conj k))))
-               (map (fn [m]
-                      (reduce (fn [acc k]
-                                (dissoc acc k)) m @drop-ks)) xs))))))
+(defn dropna [& args]
+  (m/match args
+    (m/pred empty?)
+    (dropna :axis 0)
+    (:axis 0)
+    (filter #(every? identity (vals %)))
+    (:axis 1)
+    (let [vks     (volatile! ::none)
+          drop-ks (volatile! #{})]
+      (comp
+       (x/transjuxt {:ks (comp (take 1) (mapcat keys) (x/into []))
+                     :xs (x/into [])})
+       (mapcat (fn [{:keys [ks xs]}]
+                 (when (identical? @vks ::none)
+                   (vreset! vks ks)
+                   (doseq [k ks]
+                     (when-not (every? identity (map k xs))
+                       (vswap! drop-ks conj k))))
+                 (map (fn [m]
+                        (reduce (fn [acc k]
+                                  (dissoc acc k)) m @drop-ks)) xs)))))))
 
 (comment
   (into [] (dropna :axis 1) [{:a 1 :b 1} {:a 2 :b nil} {:a 3 :b 3}]))
-
-(defmethod dropna nil
-  [& _]
-  (dropna :axis 0))
 
 (comment
   (into [] (dropna) [{:a 1 :b 1} {:a 2 :b nil} {:a 3 :b 3}]))
@@ -377,22 +319,21 @@
 (comment
   (into [] (fillna 0) [{:a 1 :b 1} {:a 2 :b nil} {:a 3 :b 3}]))
 
-(defmulti group-by (fn [f m] [(type f) (type m)]))
-
-(defmethod group-by [:danzig/fn :danzig/fn]
-  [f xf]
-  (comp
-   (x/by-key f xf)))
-
-(defmethod group-by [:danzig/fn :danzig/map]
-  [f m]
-  (comp
-   (x/by-key f (agg/aggregate m))))
-
-(defmethod group-by [:danzig/keyword :danzig/map]
-  [k m]
-  (comp
-   (x/by-key k (agg/aggregate m))))
+(defn group-by [& args]
+  (println args)
+  (m/match args
+    ;; k f
+    ((m/pred (some-fn keyword? fn?) ?f) (m/pred fn? ?xf))
+    (x/by-key ?f ?xf)
+    ;; [k j] f
+    ([(m/pred (some-fn keyword? fn?) !fs) ...] (m/pred fn? ?xf))
+    (x/by-key (apply juxt !fs) ?xf)
+    ;; k map
+    ((m/pred (some-fn keyword? fn?) ?f) (m/pred map? ?m))
+    (x/by-key ?f (agg/aggregate ?m))
+    ;; [k j] map
+    ([(m/pred (some-fn keyword? fn?) !fs) ...] (m/pred map? ?m))
+    (x/by-key (apply juxt !fs) (agg/aggregate ?m))))
 
 (comment
   (=>> [{:a 1 :c 1} {:a 1 :c 2} {:a 2 :c 3} {:a 2 :c 4}] (group-by :a {:c :sum}))
@@ -414,24 +355,11 @@
   ;; => [515.28 531.06])
   )
 
-(defmethod group-by [:danzig/keyword :danzig/fn]
-  [k f]
-  (x/by-key k f))
-
 (comment
   (=>> data (group-by :a (x/into []))))
 
-(defmethod group-by [:danzig/collection :danzig/map]
-  [ks m]
-  (comp
-   (x/by-key (apply juxt ks) (agg/aggregate m))))
-
 (comment
   (into [] (group-by [:a :b] {:a :sum}) data))
-
-(defmethod group-by [:danzig/collection :danzig/fn]
-  [ks f]
-  (x/by-key (apply juxt ks) f))
 
 (comment
   (=>> data (group-by [:a :b] (x/into []))))
@@ -443,8 +371,8 @@
    (comp (map k) (value-counts))))
 
 (comment
-  (into [] (value-counts) data)
-  (into [] (value-counts :a) data))
+  (into {} (value-counts) data)
+  (into {} (value-counts :a) data))
 
 #?(:clj
    (defn- keyword->freq [[n k]]
@@ -635,17 +563,9 @@
    (mapcat identity)))
 
 (comment
-  (into [] (rolling 10 x/avg) (range 10))
+  (into [] (rolling 10 x/avg) (range 100))
   (into [] (rolling 10 10 (x/reduce +)) (range 100))
   (into [] (window 10 1 x/avg) (range 10)))
-
-(def columns
-  (comp (take 1) (map keys)))
-
-(comment
-  (into [] columns data))
-
-
 
 (defn head
   ([] (head 5))

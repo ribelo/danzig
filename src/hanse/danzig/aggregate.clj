@@ -1,7 +1,9 @@
 (ns hanse.danzig.aggregate
   (:refer-clojure :exclude [first last min max count])
-  (:require [net.cgrand.xforms :as x]
-            [hanse.rostock.stats :as stats]))
+  (:require
+   [net.cgrand.xforms :as x]
+   [meander.epsilon :as m]
+   [hanse.rostock.stats :as stats]))
 
 (defn map->rfs [k rf]
   (comp (map k) rf))
@@ -28,6 +30,7 @@
   (map->rfs k (stats/mean)))
 
 (defn median [k]
+  (println k)
   (map->rfs k (stats/median)))
 
 (defn std [k]
@@ -81,10 +84,11 @@
    (persistent!
     (reduce-kv
      (fn [acc k f]
-       (let [f (cond
-                 (fn? f) f
-                 (keyword? f) ((agg->fn f) k)
-                 (coll? f) ((agg->fn (clojure.core/second f)) (clojure.core/first f)))]
+       (let [f (m/match f
+                 (m/pred fn? ?f) ?f
+                 (m/pred keyword? ?k) ((agg->fn ?k) k)
+                 [(m/pred keyword? ?k) (m/pred keyword? ?f)] ((agg->fn ?f) ?k)
+                 [(m/pred keyword? ?k) (m/pred fn? ?f)] (comp (map ?k) ?f))]
          (assoc! acc k f)))
      (transient {})
      m))))
