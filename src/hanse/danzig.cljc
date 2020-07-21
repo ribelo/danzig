@@ -158,9 +158,12 @@
     ((m/pred #(instance? java.util.regex.Pattern %) ?x) & _)
     (comp (x/transjuxt [(column-names ?x) (x/into [])])
           (map (fn [[ks coll]] (=>> coll (select-columns ks)))))
-    ;; keys
-    (!ks ...)
-    (map #(persistent! (reduce (fn [acc k] (assoc! acc k (get % k))) (transient {}) !ks)))))
+    ;; ks ...
+    ((m/pred (some-fn keyword? string?) !ks) ...)
+    (map #(persistent! (reduce (fn [acc k] (assoc! acc k (get % k))) (transient {}) !ks)))
+    ;; [ks]
+    (?ks)
+    (map #(persistent! (reduce (fn [acc k] (assoc! acc k (get % k))) (transient {}) ?ks)))))
 
 (defn rename-columns [m]
   (map #(clojure.set/rename-keys % m)))
