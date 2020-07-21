@@ -261,7 +261,9 @@
     ((m/pred #(instance? java.util.regex.Pattern %) ?x) & _)
     (comp (x/transjuxt [(column-names ?x) (x/into [])])
           (map (fn [[ks coll]] (=>> coll (drop ks)))))
-    ))
+    ;; {k f}
+    ((m/pred map? ?mfn))
+    (remove (fn [m] (some (fn [[k f]] (f (get m k))) ?mfn)))))
 
 (comment
   (do
