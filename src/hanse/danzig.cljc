@@ -58,12 +58,12 @@
 (defn vecs->maps [ks]
   (m/match ks
     (m/pred map?)
-    (map #(persistent! (reduce-kv (fn [acc k v] (assoc! acc k (nth % v))) (transient {}) ks)))
+    (map #(persistent! (reduce-kv (fn [acc i k] (assoc! acc k (nth % i))) (transient {}) ks)))
     (m/pred vector? ?x)
     (map #(zipmap ?x %))))
 
 (comment
-  (=>> [[0 0] [1 1] [2 2]] (vecs->maps {:a 0 :b 1}))
+  (=>> [[0 0] [1 2] [3 4]] (vecs->maps {0 :a 1 :b}))
   ;; => [{:a 0, :b 0} {:a 1, :b 1} {:a 2, :b 2}]
   (=>> [[0 0] [1 1] [2 2]] (vecs->maps [:a :b])))
 
