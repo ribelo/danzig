@@ -33,23 +33,31 @@
             ~coll)))
 
 #?(:clj
+   (defn ^:private args->fn-body [args]
+     (m/match args
+       [?f (m/pred (some-fn keyword? string?) ?x) (m/pred (some-fn keyword? string?) ?y)]
+       `(~?f (get ~'m ~?x) (get ~'m ~?y))
+       [?f (m/pred #(instance? java.util.regex.Pattern %) ?x) (m/pred (some-fn keyword? string?) ?y)]
+       `(~?f ~?x (get ~'m ~?y))
+       [?f ?x ?y]
+       `(~?f (get ~'m ~?x) ~?y))))
+
+#?(:clj
    (defmacro ^:private and-macro [coll]
-     (loop [[[op k & v] & coll] coll
+     (loop [[args & coll] coll
             r                   '()]
-       (if op
-         (recur coll (conj r (if v
-                               `(~op (get ~'m ~k) ~(first v))
-                               `(~op (get ~'m ~k)))))
-         `(and ~@r)))))
+       (if args
+         (let [body (args->fn-body args)]
+           (recur coll (conj r body)))
+         `(clojure.core/and ~@r)))))
 
 #?(:clj
    (defmacro ^:private or-macro [coll]
-     (loop [[[op k & v] & coll] coll
+     (loop [[args & coll] coll
             r                   '()]
-       (if op
-         (recur coll (conj r (if v
-                               `(~op (get ~'m ~k) ~(first v))
-                               `(~op (get ~'m ~k)))))
+       (if args
+         (let [body (args->fn-body args)]
+           (recur coll (conj r body)))
          `(clojure.core/or ~@r)))))
 
 (defn comp-some [& fns]
@@ -95,7 +103,7 @@
     (filter (fn [m] (?f (get m ?k))))))
 
 (comment
-  (=>> data (where* [> :a 1.0]) (take 1))
+  (=>> data (where* [> :a :b]) (take 1))
   ;; => [{:a 58, :b 94, :c -70}]
   )
 
@@ -111,14 +119,13 @@
        :or  `(filter (fn [~'m] (or-macro ~y)))
        `(where* ~args))))
 
+
+
 (comment
   [(e/qb 1
          (=>> data
               (where [:and
-                      [> :a 0.0]
-                      [< :a 50.0]
-                      [< :b 0.0]
-                      [> :b -50.0]])))
+                      [> :a :b]])))
    (e/qb 1
          (=>> data
               (filter (fn [m] (> (get m :a) 0.0)))
