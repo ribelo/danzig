@@ -175,12 +175,19 @@
 (defn rename-columns [m]
   (map #(clojure.set/rename-keys % m)))
 
-(defn add-or-replace-column [& args]
+(defn set [& args]
   (m/match args
-    ;; key [fn keys]
-    ((m/and ?k (m/pred (some-fn keyword? string?)))
+    ;; i key val
+    ((m/pred integer? ?i) (m/pred (some-fn keyword? string?) ?k) ?v)
+    (map-indexed (fn [i m] (if (= i ?i) (assoc m ?k ?v) m)))
+    ;; i map
+    ((m/pred integer? ?i) (m/pred map? ?m))
+    (map-indexed (fn [i m] (if (= i ?i) ?m m)))
+    ;; key [fn keys/vals]
+    ((m/pred (some-fn keyword? string?) ?k)
      [(m/pred fn? ?f) . !ks ...])
-    (map (fn [m] (let [args (mapv #(get m %) !ks)
+    (map (fn [m] (let [args (mapv (fn [k] (if ((some-fn keyword? string?) k)
+                                            (get m k) k)) !ks)
                        v    (apply ?f args)]
                    (assoc m ?k v))))
     ;; key coll
@@ -198,7 +205,35 @@
              (ensure-reduced acc))))))
     ;; key val
     ((m/and ?k (m/pred (some-fn keyword? string?))) ?v)
-    (map (fn [m] (assoc m ?k ?v)))))
+    (map (fn [m] (assoc m ?k ?v)))
+    ;; {k [f kesy/vals]}
+    ((m/pred map? ?mfn))
+    (map (fn [m]
+           (persistent!
+            (reduce-kv
+             (fn [acc k [f & xs]]
+               (let [args (mapv (fn [k] (if ((some-fn keyword? string?) k)
+                                          (get m k) k)) xs)]
+                 (assoc! acc k (apply f args))))
+             (transient m)
+             ?mfn))))))
+
+(comment
+  (=>> data (set 0 :a 999) (take 2))
+  ;; => [{:a 999, :b 43, :c 7} {:a 58, :b 94, :c -70}]
+  (=>> data (set 0 {:a nil :b nil :c nil}) (take 2))
+  ;; => [{:a nil, :b nil, :c nil} {:a 58, :b 94, :c -70}]
+  (=>> data (set :new 0) (take 2))
+  ;; => [{:a -91, :b 43, :c 7, :new 0} {:a 58, :b 94, :c -70, :new 0}]
+  (=>> data (set :new [+ :a 1]) (take 2))
+  ;; => [{:a -91, :b 43, :c 7, :new -48} {:a 58, :b 94, :c -70, :new 152}]
+  (=>> data
+       (set {:new-a [+ :a 1]
+             :new-b [+ :b 1]})
+       (take 2))
+  ;; => [{:a 70, :b -13, :c 45, :new-a 71, :new-b -12}
+  ;;     {:a -37, :b 41, :c 45, :new-a -36, :new-b 42}]
+  )
 
 (defn replace [& args]
   (m/match args
