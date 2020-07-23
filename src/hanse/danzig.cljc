@@ -66,7 +66,7 @@
 (defn vecs->maps [ks]
   (m/match ks
     (m/pred map?)
-    (map #(persistent! (reduce-kv (fn [acc i k] (assoc! acc k (nth % i))) (transient {}) ks)))
+    (map #(persistent! (reduce-kv (fn [acc i k] (assoc! acc k (nth % i ""))) (transient {}) ks)))
     (m/pred vector? ?x)
     (map #(zipmap ?x %))))
 
