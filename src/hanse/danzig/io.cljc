@@ -42,13 +42,14 @@
                               (map #(map vector % (range))))})
       (mapcat (fn [{:keys [xs headers]}]
                 (into [] (vecs->maps (into {} headers)) xs))))
-     [(m/with [%p1 (m/or [!ks (m/or (m/pred vector? !vs) (m/app vector !vs))]
+     [(m/with [%p1 (m/or [!ks & (m/or (m/pred vector? !vs) (m/app vector !vs))]
                          (m/and (m/pred (some-fn keyword? string?) !ks) (m/let [!vs []])))
                %p2 (m/seqable [!xs %p1] ...)]
         %p2) _]
      (comp
       (vecs->maps (zipmap !xs !ks))
       (dz/update (zipmap !ks (map #(apply comp (reverse (map dtype->fn %))) !vs)))))))
+
 
 (defn remove-quote [q]
   (fn [rf]

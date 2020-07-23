@@ -272,6 +272,14 @@
              (transient {})
              m))))))
 
+(comment
+  (=>> data (update :a inc) (take 2))
+  ;; => [{:a 71, :b -13, :c 45} {:a -36, :b 41, :c 45}]
+  (=>> data (update :a even? inc) (take 2))
+  ;; => [{:a 71, :b -13, :c 45} {:a -37, :b 41, :c 45}]
+  (=>> data (update {:a inc}))
+  )
+
 (defn drop [& args]
   (m/match args
     ;; none
