@@ -19,22 +19,21 @@
 (defn comp-some [& fns]
   (apply comp (filter identity fns)))
 
-(defmacro =>> [& body]
-  (m/match body
-    ((m/pred seqable? ?coll) . (m/cata !xs) ...)
-    (let [into# (or (->> !xs (map :into) (last)) [])
-          xfs#  (->> !xs (map :xf) (remove nil?))
-          fns#  (->> !xs (map :fn) (remove nil?))]
-      (if (not-empty fns#)
-        `((comp ~@(reverse fns#)) (into ~into# ~@(when (not-empty xfs#) `((comp-some ~@xfs#))) ~?coll))
-        `(into ~into# ~@(when (not-empty xfs#) `((comp-some ~@xfs#))) ~?coll)))
-    '.                     {:xf '(take 1) :fn 'first}
-    '...                   {:xf (mapcat identity)}
-    '{}                    {:into {}}
-    '#{}                   {:into #{}}
-    (m/or
-      (m/seqable (m/pred symbol?) & _ :as ?f)
-      (m/pred symbol? ?f)) {:xf ?f}))
+(defmacro =>> [coll & forms]
+  (loop [[form & forms] forms xfs [] after nil output []]
+    (if form
+      (cond
+        (= '[] form)  (recur forms xfs after nil)
+        (= '{} form)  (recur forms xfs after {})
+        (= '#{} form) (recur forms xfs after #{})
+        (= '. form)   (recur forms (conj xfs '(take 1)) 'first output)
+        (= '.. form)  (recur forms (conj xfs '(take 1)) 'ffirst output)
+        (= '... form) (recur forms (conj xfs (mapcat identity)) after output)
+        :else         (recur forms (conj xfs form) after output))
+      (let [xfs (->> xfs (remove nil?))]
+        (if after
+          `(~after (into ~output ~@(when (not-empty xfs) `((comp-some ~@xfs))) ~coll))
+          `(into ~output ~@(when (not-empty xfs) `((comp-some ~@xfs))) ~coll))))))
 
 (defmacro +>> [coll & body] `(=>> ~coll ~@body {}))
 
