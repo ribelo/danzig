@@ -16,21 +16,27 @@
                                           :b (* (rand-int 100) (if (e/chance 0.5) 1 -1))
                                           :c (* (rand-int 100) (if (e/chance 0.5) 1 -1))})))))
 
-#?(:clj
-   (defmacro =>>
-     [coll & body]
-     `(into []
-            (comp-some
-             ~@body)
-            ~coll)))
+(defn comp-some [& fns]
+  (apply comp (filter identity fns)))
 
-#?(:clj
-   (defmacro +>>
-     [coll & body]
-     `(into {}
-            (comp-some
-             ~@body)
-            ~coll)))
+(defmacro =>> [& body]
+  (m/match body
+    ((m/pred seqable? ?coll) . (m/cata !xs) ...)
+    (let [into# (or (->> !xs (map :into) (last)) [])
+          xfs#  (->> !xs (map :xf) (remove nil?))
+          fns#  (->> !xs (map :fn) (remove nil?))]
+      (if (not-empty fns#)
+        `((comp ~@(reverse fns#)) (into ~into# ~@(when (not-empty xfs#) `((comp-some ~@xfs#))) ~?coll))
+        `(into ~into# ~@(when (not-empty xfs#) `((comp-some ~@xfs#))) ~?coll)))
+    '.                     {:xf '(take 1) :fn 'first}
+    '...                   {:xf (mapcat identity)}
+    '{}                    {:into {}}
+    '#{}                   {:into #{}}
+    (m/or
+      (m/seqable (m/pred symbol?) & _ :as ?f)
+      (m/pred symbol? ?f)) {:xf ?f}))
+
+(defmacro +>> [coll & body] `(=>> ~coll ~@body {}))
 
 #?(:clj
    (defn ^:private args->fn-body [args]
@@ -45,7 +51,7 @@
 #?(:clj
    (defmacro ^:private and-macro [coll]
      (loop [[args & coll] coll
-            r                   '()]
+            r             '()]
        (if args
          (let [body (args->fn-body args)]
            (recur coll (conj r body)))
@@ -54,14 +60,11 @@
 #?(:clj
    (defmacro ^:private or-macro [coll]
      (loop [[args & coll] coll
-            r                   '()]
+            r             '()]
        (if args
          (let [body (args->fn-body args)]
            (recur coll (conj r body)))
          `(clojure.core/or ~@r)))))
-
-(defn comp-some [& fns]
-  (apply comp (filter identity fns)))
 
 (defn vecs->maps [ks]
   (m/match ks
@@ -210,13 +213,13 @@
     ((m/pred map? ?mfn))
     (map (fn [m]
            (persistent!
-            (reduce-kv
-             (fn [acc k [f & xs]]
-               (let [args (mapv (fn [k] (if ((some-fn keyword? string?) k)
-                                          (get m k) k)) xs)]
-                 (assoc! acc k (apply f args))))
-             (transient m)
-             ?mfn))))))
+             (reduce-kv
+               (fn [acc k [f & xs]]
+                 (let [args (mapv (fn [k] (if ((some-fn keyword? string?) k)
+                                            (get m k) k)) xs)]
+                   (assoc! acc k (apply f args))))
+               (transient m)
+               ?mfn))))))
 
 (comment
   (=>> data (set 0 :a 999) (take 2))
@@ -265,12 +268,12 @@
     ((m/pred map? ?mfn))
     (map (fn [m]
            (persistent!
-            (reduce-kv
-             (fn [acc k v]
-               (let [f (get ?mfn k)]
-                 (assoc! acc k (cond-> v (identity f) f))))
-             (transient {})
-             m))))))
+             (reduce-kv
+               (fn [acc k v]
+                 (let [f (get ?mfn k)]
+                   (assoc! acc k (cond-> v (identity f) f))))
+               (transient {})
+               m))))))
 
 (comment
   (=>> data (update :a inc) (take 2))
@@ -348,17 +351,17 @@
     (let [vks     (volatile! ::none)
           drop-ks (volatile! #{})]
       (comp
-       (x/transjuxt {:ks (comp (take 1) (mapcat keys) (x/into []))
-                     :xs (x/into [])})
-       (mapcat (fn [{:keys [ks xs]}]
-                 (when (identical? @vks ::none)
-                   (vreset! vks ks)
-                   (doseq [k ks]
-                     (when-not (every? identity (map k xs))
-                       (vswap! drop-ks conj k))))
-                 (map (fn [m]
-                        (reduce (fn [acc k]
-                                  (dissoc acc k)) m @drop-ks)) xs)))))))
+        (x/transjuxt {:ks (comp (take 1) (mapcat keys) (x/into []))
+                      :xs (x/into [])})
+        (mapcat (fn [{:keys [ks xs]}]
+                  (when (identical? @vks ::none)
+                    (vreset! vks ks)
+                    (doseq [k ks]
+                      (when-not (every? identity (map k xs))
+                        (vswap! drop-ks conj k))))
+                  (map (fn [m]
+                         (reduce (fn [acc k]
+                                   (dissoc acc k)) m @drop-ks)) xs)))))))
 
 (comment
   (into [] (dropna :axis 1) [{:a 1 :b 1} {:a 2 :b nil} {:a 3 :b 3}]))
@@ -369,7 +372,7 @@
 (defn fillna [v]
   (map (fn [m]
          (persistent!
-          (reduce-kv (fn [acc k val] (if val (assoc! acc k val) (assoc! acc k v))) (transient {}) m)))))
+           (reduce-kv (fn [acc k val] (if val (assoc! acc k val) (assoc! acc k v))) (transient {}) m)))))
 
 (comment
   (into [] (fillna 0) [{:a 1 :b 1} {:a 2 :b nil} {:a 3 :b 3}]))
@@ -445,90 +448,90 @@
    (defn- as-day-freq [freq {:keys [key fill] :or {key :date fill []}}]
      (let [fill (conj fill key)]
        (comp
-        (x/sort-by key)
-        (fn [rf]
-          (let [freq (keyword->freq freq)
-                lst  (volatile! ::none)]
-            (fn
-              ([] (rf))
-              ([acc] (rf acc))
-              ([acc x]
-               (if (identical? @lst ::none)
-                 (do (vreset! lst (select-keys x fill))
-                     (rf acc x))
-                 (let [last-date (jt/plus (get @lst key) freq)
-                       date      (get x key)
-                       dts       (take-while #(jt/before? % date)
-                                             (jt/iterate jt/plus last-date freq))
-                       tmps      (reduce (fn [acc d] (conj acc (assoc @lst key d)))
-                                         []
-                                         dts)]
-                   (vreset! lst (reduce (fn [acc k] (assoc acc k (get x k)))
-                                        {}
-                                        fill))
-                   (vreset! lst (select-keys x fill))
-                   (reduce (fn [acc v] (rf acc v)) acc tmps)
-                   (rf acc x)))))))))))
+         (x/sort-by key)
+         (fn [rf]
+           (let [freq (keyword->freq freq)
+                 lst  (volatile! ::none)]
+             (fn
+               ([] (rf))
+               ([acc] (rf acc))
+               ([acc x]
+                (if (identical? @lst ::none)
+                  (do (vreset! lst (select-keys x fill))
+                      (rf acc x))
+                  (let [last-date (jt/plus (get @lst key) freq)
+                        date      (get x key)
+                        dts       (take-while #(jt/before? % date)
+                                              (jt/iterate jt/plus last-date freq))
+                        tmps      (reduce (fn [acc d] (conj acc (assoc @lst key d)))
+                                          []
+                                          dts)]
+                    (vreset! lst (reduce (fn [acc k] (assoc acc k (get x k)))
+                                         {}
+                                         fill))
+                    (vreset! lst (select-keys x fill))
+                    (reduce (fn [acc v] (rf acc v)) acc tmps)
+                    (rf acc x)))))))))))
 
 #?(:clj
    (defn- as-month-freq [freq {:keys [key fill] :or {key :date fill []}}]
      (let [fill (conj fill key)]
        (comp
-        (x/sort-by key)
-        (fn [rf]
-          (let [lst (volatile! ::none)]
-            (fn
-              ([] (rf))
-              ([acc] (rf acc))
-              ([acc x]
-               (if (identical? @lst ::none)
-                 (do (vreset! lst (select-keys x fill))
-                     (rf acc (clojure.core/update x key #(jt/adjust % :last-day-of-month))))
-                 (let [last-date (jt/adjust (jt/plus (get @lst key) (jt/months 1)) :last-day-of-month)
-                       date      (jt/adjust (get x key) :last-day-of-month)
-                       dts       (take-while #(jt/before? % date)
-                                             (iterate #(-> %
-                                                           (jt/plus (jt/months 1))
-                                                           (jt/adjust :last-day-of-month))
-                                                      last-date))
-                       tmps      (reduce (fn [acc d] (conj acc (assoc @lst key d)))
-                                         []
-                                         dts)]
-                   (vreset! lst (reduce (fn [acc k] (assoc acc k (get x k)))
-                                        {}
-                                        fill))
-                   (reduce (fn [acc v] (rf acc v)) acc tmps)
-                   (rf acc (clojure.core/update x key #(jt/adjust % :last-day-of-month)))))))))))))
+         (x/sort-by key)
+         (fn [rf]
+           (let [lst (volatile! ::none)]
+             (fn
+               ([] (rf))
+               ([acc] (rf acc))
+               ([acc x]
+                (if (identical? @lst ::none)
+                  (do (vreset! lst (select-keys x fill))
+                      (rf acc (clojure.core/update x key #(jt/adjust % :last-day-of-month))))
+                  (let [last-date (jt/adjust (jt/plus (get @lst key) (jt/months 1)) :last-day-of-month)
+                        date      (jt/adjust (get x key) :last-day-of-month)
+                        dts       (take-while #(jt/before? % date)
+                                              (iterate #(-> %
+                                                            (jt/plus (jt/months 1))
+                                                            (jt/adjust :last-day-of-month))
+                                                       last-date))
+                        tmps      (reduce (fn [acc d] (conj acc (assoc @lst key d)))
+                                          []
+                                          dts)]
+                    (vreset! lst (reduce (fn [acc k] (assoc acc k (get x k)))
+                                         {}
+                                         fill))
+                    (reduce (fn [acc v] (rf acc v)) acc tmps)
+                    (rf acc (clojure.core/update x key #(jt/adjust % :last-day-of-month)))))))))))))
 
 #?(:clj
    (defn- as-year-freq [freq {:keys [key fill] :or {key :date fill []}}]
      (let [fill (conj fill key)]
        (comp
-        (x/sort-by key)
-        (fn [rf]
-          (let [lst (volatile! ::none)]
-            (fn
-              ([] (rf))
-              ([acc] (rf acc))
-              ([acc x]
-               (if (identical? @lst ::none)
-                 (do (vreset! lst (select-keys x fill))
-                     (rf acc (clojure.core/update x key #(jt/adjust % :last-day-of-year))))
-                 (let [last-date (jt/adjust (jt/plus (get @lst key) (jt/months 1))  :last-day-of-year)
-                       date      (jt/adjust (get x key)  :last-day-of-year)
-                       dts       (take-while #(jt/before? % date)
-                                             (iterate #(-> %
-                                                           (jt/plus (jt/months 1))
-                                                           (jt/adjust  :last-day-of-year))
-                                                      last-date))
-                       tmps      (reduce (fn [acc d] (conj acc (assoc @lst key d)))
-                                         []
-                                         dts)]
-                   (vreset! lst (reduce (fn [acc k] (assoc acc k (get x k)))
-                                        {}
-                                        fill))
-                   (reduce (fn [acc v] (rf acc v)) acc tmps)
-                   (rf acc (clojure.core/update x key #(jt/adjust %  :last-day-of-year)))))))))))))
+         (x/sort-by key)
+         (fn [rf]
+           (let [lst (volatile! ::none)]
+             (fn
+               ([] (rf))
+               ([acc] (rf acc))
+               ([acc x]
+                (if (identical? @lst ::none)
+                  (do (vreset! lst (select-keys x fill))
+                      (rf acc (clojure.core/update x key #(jt/adjust % :last-day-of-year))))
+                  (let [last-date (jt/adjust (jt/plus (get @lst key) (jt/months 1))  :last-day-of-year)
+                        date      (jt/adjust (get x key)  :last-day-of-year)
+                        dts       (take-while #(jt/before? % date)
+                                              (iterate #(-> %
+                                                            (jt/plus (jt/months 1))
+                                                            (jt/adjust  :last-day-of-year))
+                                                       last-date))
+                        tmps      (reduce (fn [acc d] (conj acc (assoc @lst key d)))
+                                          []
+                                          dts)]
+                    (vreset! lst (reduce (fn [acc k] (assoc acc k (get x k)))
+                                         {}
+                                         fill))
+                    (reduce (fn [acc v] (rf acc v)) acc tmps)
+                    (rf acc (clojure.core/update x key #(jt/adjust %  :last-day-of-year)))))))))))))
 
 (defmulti asfreq (fn [[_ k] & _] k))
 
@@ -564,14 +567,14 @@
   "Convert series smalest than monht to a month series"
   ([k]
    (comp
-    (x/by-key (fn [m] (jt/as (get m k) :year :month-of-year))
-              (x/take-last 1))
-    (map second)
-    (x/sort-by k)))
+     (x/by-key (fn [m] (jt/as (get m k) :year :month-of-year))
+               (x/take-last 1))
+     (map second)
+     (x/sort-by k)))
   ([k data]
    (loop [[m & data] data
-          p nil
-          r (transient [])]
+          p          nil
+          r          (transient [])]
      (if m
        (if (and p (not= (.getMonthValue ^java.time.LocalDate (get p k))
                         (.getMonthValue ^java.time.LocalDate (get m k))))
@@ -583,10 +586,10 @@
   "Convert series smalest than year to a year series"
   ([k]
    (comp
-    (x/by-key (fn [m] (jt/as (get m k) :year))
-              (x/take-last 1))
-    (map second)
-    (x/sort-by k)))
+     (x/by-key (fn [m] (jt/as (get m k) :year))
+               (x/take-last 1))
+     (map second)
+     (x/sort-by k)))
   ([k data]
    (loop [[m & data] data
           p          nil
@@ -613,9 +616,9 @@
 
 (defn rolling [n xform]
   (comp
-   (window n 1 xform)
-   (x/into (vec (repeat (dec n) nil)))
-   (mapcat identity)))
+    (window n 1 xform)
+    (x/into (vec (repeat (dec n) nil)))
+    (mapcat identity)))
 
 (comment
   (into [] (rolling 10 x/avg) (range 100))
