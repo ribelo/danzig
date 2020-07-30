@@ -236,6 +236,7 @@
        (take 2))
   ;; => [{:a 70, :b -13, :c 45, :new-a 71, :new-b -12}
   ;;     {:a -37, :b 41, :c 45, :new-a -36, :new-b 42}]
+  (=>> [{:a 1} {:a 1}] (set :new 1))
   )
 
 (defn replace [& args]
