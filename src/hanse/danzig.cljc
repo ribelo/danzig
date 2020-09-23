@@ -13,9 +13,8 @@
   (do
     (require '[taoensso.encore :as e])
     (def data (repeatedly 1000000 (fn [] {:a (* (rand-int 100) (if (e/chance 0.5) 1 -1))
-                                          :b (* (rand-int 100) (if (e/chance 0.5) 1 -1))
-                                          :c (* (rand-int 100) (if (e/chance 0.5) 1 -1))})))))
-
+                                         :b (* (rand-int 100) (if (e/chance 0.5) 1 -1))
+                                         :c (* (rand-int 100) (if (e/chance 0.5) 1 -1))})))))
 (defn comp-some [& fns]
   (apply comp (filter identity fns)))
 
@@ -178,7 +177,7 @@
   (map #(clojure.set/rename-keys % m)))
 
 (defn set [& args]
-  (m/match args
+  (m/find args
     ;; i key val
     ((m/pred integer? ?i) (m/pred (some-fn keyword? string?) ?k) ?v)
     (map-indexed (fn [i m] (if (= i ?i) (assoc m ?k ?v) m)))
@@ -189,9 +188,12 @@
     ((m/pred (some-fn keyword? string?) ?k)
      [(m/pred fn? ?f) . !ks ...])
     (map (fn [m] (let [args (mapv (fn [k] (if ((some-fn keyword? string?) k)
-                                            (get m k) k)) !ks)
-                       v    (apply ?f args)]
-                   (assoc m ?k v))))
+                                          (get m k) k)) !ks)
+                      v    (apply ?f args)]
+                  (assoc m ?k v))))
+    ;; key fn
+    ((m/pred (some-fn keyword? string?) ?k) (m/pred fn? ?fn))
+    (map (fn [m] (assoc m ?k (?fn m))))
     ;; key coll
     ((m/and ?k (m/pred (some-fn keyword? string?)))
      (m/pred coll? ?coll))
@@ -206,19 +208,32 @@
                  (xf acc (assoc e ?k v)))
              (ensure-reduced acc))))))
     ;; key val
-    ((m/and ?k (m/pred (some-fn keyword? string?))) ?v)
+    ((m/pred (some-fn keyword? string?) ?k) ?v)
     (map (fn [m] (assoc m ?k ?v)))
-    ;; {k [f kesy/vals]}
-    ((m/pred map? ?mfn))
+    ;; {k [f keys/vals]}
+    ((m/and ?args
+            (m/map-of (m/pred (some-fn keyword? string?) !ks)
+                      [(m/pred fn?) . _ ...])))
     (map (fn [m]
            (persistent!
              (reduce-kv
-               (fn [acc k [f & xs]]
+               (fn [acc k [f & ks]]
                  (let [args (mapv (fn [k] (if ((some-fn keyword? string?) k)
-                                            (get m k) k)) xs)]
+                                           (get m k) k)) ks)]
                    (assoc! acc k (apply f args))))
                (transient m)
-               ?mfn))))))
+               ?args))))
+    ;; {k f} ...
+    ((m/map-of (m/pred (some-fn keyword? string?) !ks)
+               (m/pred fn? !fns)))
+    (let [kfns (mapv vector !ks !fns)]
+      (map (fn [m]
+             (persistent!
+               (reduce
+                 (fn [acc [k f]] (assoc! acc k (f m)))
+                 (transient m)
+                 kfns)))))
+    _ (throw (ex-info "non exhaustive pattern match" {}))))
 
 (comment
   (=>> data (set 0 :a 999) (take 2))
