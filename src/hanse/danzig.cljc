@@ -7,6 +7,7 @@
    [meander.epsilon :as m]
    [hanse.danzig.relationship]
    [hanse.rostock.math :as math]
+   #?(:clj [hanse.rostock.stats :as stats])
    #?(:clj [hanse.danzig.aggregate :as agg])))
 
 (comment
@@ -68,6 +69,7 @@
   (m/match ks
     (m/pred map?)
     (map #(persistent! (reduce-kv (fn [acc i k] (assoc! acc k (nth % i ""))) (transient {}) ks)))
+    
     (m/pred vector? ?x)
     (map #(zipmap ?x %))))
 
@@ -86,14 +88,32 @@
   ;; => {:a 1, :b 2, :c 3}
   )
 
+(defn- k->fn [k]
+  (m/match k
+    :sum     (fn [& args] (reduce + args))
+    #?@(:clj [:mean  stats/mean
+              :max   stats/max
+              :min   stats/min])
+    :abs             math/abs
+    :sq              math/sq
+    :sqrt            math/sqrt
+    :pow             math/pow
+    :root            math/root
+    (m/pred fn? ?fn) ?fn))
+
 (defn where* [args]
   (m/match args
-    ;; [:> :a :b]
-    [(m/pred fn? ?f)
-     (m/pred (some-fn keyword? string?) ?k)
-     (m/pred (some-fn keyword? string?) ?j)]
-    (filter (fn [m] (?f (get m ?k) (get m ?j))))
-    ;; [:> :a 1]
+    ;; f
+    (m/pred fn? ?f)
+    (filter (fn [m] (?f m)))
+    ;; [f . !ks]
+    [(m/pred fn? ?f) .
+     (m/pred (some-fn keyword? string?) !ks) ...]
+    (filter (fn [m] (apply ?f (persistent!
+                               (reduce (fn [acc k] (conj! acc (get m k)))
+                                       (transient [])
+                                       !ks)))))
+    ;; [?f ?k ?v]
     [(m/pred fn? ?f)
      (m/pred (some-fn keyword? string?) ?k)
      (m/some ?v)]
@@ -101,11 +121,43 @@
     ;; [even? :a]
     [(m/pred fn? ?f)
      (m/pred (some-fn keyword? string?) ?k)]
-    (filter (fn [m] (?f (get m ?k))))))
+    (filter (fn [m] (?f (get m ?k))))
+    ;; [f [f args] k]
+    [(m/pred fn? ?fn1) [(m/pred (some-fn fn? keyword?) ?fn2) & ?xs]
+     (m/pred (some-fn keyword? string?) ?k)]
+    (let [?fn2 (k->fn ?fn2)]
+      (filter (fn [m] (?fn1 (apply ?fn2
+                                  (persistent!
+                                    (reduce (fn [acc k] (conj! acc (if (keyword? k) (get m k) k)))
+                                            (transient [])
+                                            ?xs)))
+                           (get m ?k)))))
+    ;; [f [f args] [f args]]
+    [(m/pred fn? ?fn1)
+     [(m/pred (some-fn fn? keyword?) ?fn2) & ?xs1]
+     [(m/pred (some-fn fn? keyword?) ?fn3) & ?xs2]]
+    (let [?fn2 (k->fn ?fn2)
+          ?fn3 (k->fn ?fn3)]
+      (filter (fn [m] (?fn1 (apply ?fn2
+                                  (persistent!
+                                    (reduce (fn [acc k] (conj! acc (if (keyword? k) (get m k) k)))
+                                            (transient [])
+                                            ?xs1)))
+                           (apply ?fn3
+                                  (persistent!
+                                    (reduce (fn [acc k] (conj! acc (if (keyword? k) (get m k) k)))
+                                            (transient [])
+                                            ?xs2)))))))))
 
 (comment
-  (=>> data (where* [> :a :b]) (take 1))
-  ;; => [{:a 58, :b 94, :c -70}]
+  (=>> data (where* [= :a :b :c]) (take 1))
+  ;; => [{:a -52, :b -52, :c -52}]
+  [(e/qb 1 (=>> data (where* [= [* :a :c] :b])))
+   (e/qb 1 (=>> data (where* (fn [{:keys [a c b]}] (= (* a c) b)))))]
+  ;; => [466.8 150.76]
+  [(e/qb 1 (=>> data (where* [= [* :a :c] [* :a :b]])))
+   (e/qb 1 (=>> data (where* (fn [{:keys [a c b]}] (= (* a c) (* a b))))))]
+  ;; => [891.75 182.62]
   )
 
 (comment
@@ -114,13 +166,17 @@
   )
 
 #?(:clj
-   (defmacro where [[x & y :as args]]
-     (case x
-       :and `(filter (fn [~'m] (and-macro ~y)))
-       :or  `(filter (fn [~'m] (or-macro ~y)))
-       `(where* ~args))))
+   (defmacro where [args]
+     (m/match args
+       [:and & ?xs] `(filter (fn [~'m] (and-macro ~?xs)))
+       [:or & ?xs]  `(filter (fn [~'m] (or-macro ~?xs)))
+       _            `(where* ~args))))
 
 
+(comment
+  (=>> data (where [> :a :b]) (take 1))
+  ;; => [{:a 58, :b 94, :c -70}]
+  )
 
 (comment
   [(e/qb 1
@@ -188,9 +244,9 @@
     ((m/pred (some-fn keyword? string?) ?k)
      [(m/pred fn? ?f) . !ks ...])
     (map (fn [m] (let [args (mapv (fn [k] (if (or (keyword? k) (string? k))
-                                          (get m k) k)) !ks)
-                      v    (apply ?f args)]
-                  (assoc m ?k v))))
+                                            (get m k) k)) !ks)
+                       v    (apply ?f args)]
+                   (assoc m ?k v))))
     ;; key fn
     ((m/pred (some-fn keyword? string?) ?k) (m/pred fn? ?fn))
     (map (fn [m] (assoc m ?k (?fn m))))
