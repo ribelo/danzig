@@ -3,7 +3,7 @@
    [net.cgrand.xforms :as x]
    #?(:clj [net.cgrand.xforms.io :as xio])
    #?(:clj [java-time :as jt])
-   [hanse.danzig :as dz :refer [=>> vecs->maps comp-some]]
+   [hanse.danzig :as dz :refer [=>> vecs->maps comp-some some-of?]]
    [meander.epsilon :as m]
    [clojure.string :as str]))
 
@@ -26,8 +26,8 @@
   ([x opts]
    (m/match [x opts]
      [(m/pred int? ?i)
-      {:keywordize-keys (m/pred (some-fn nil? boolean?) ?keywordize)
-       :key-fn          (m/pred (some-fn nil? fn?)      ?key-fn)}]
+      {:keywordize-keys (some-of? [nil? boolean?] ?keywordize)
+       :key-fn          (some-of? [nil? fn?]      ?key-fn)}]
      (comp
        (x/transjuxt {:xs      (comp (drop (inc ?i)) (x/into []))
                      :headers (comp-some
@@ -39,7 +39,7 @@
        (mapcat (fn [{:keys [xs headers]}]
                  (into [] (vecs->maps (into {} headers)) xs))))
      [(m/with [%p1 (m/or [!ks & (m/or (m/pred vector? !vs) (m/app vector !vs))]
-                         (m/and (m/pred (some-fn keyword? string?) !ks) (m/let [!vs []])))
+                         (m/and (some-of? [keyword? string?] !ks) (m/let [!vs []])))
                %p2 (m/seqable [!xs %p1] ...)]
         %p2) _]
      (comp-some

@@ -30,7 +30,6 @@
   (map->rfs k (stats/mean)))
 
 (defn median [k]
-  (println k)
   (map->rfs k (stats/median)))
 
 (defn std [k]

@@ -18,6 +18,12 @@
 (defn comp-some [& fns]
   (apply comp (filter identity fns)))
 
+(m/defsyntax some-of?
+  ([fns name-pattern]
+   `(m/or ~@(for [f fns] (m/pred f name-pattern))))
+  ([fns]
+   `(m/or ~@(for [f fns] (m/pred f)))))
+
 (defmacro =>> [coll & forms]
   (loop [[form & forms] forms xfs [] after nil output []]
     (if form
@@ -39,9 +45,9 @@
 #?(:clj
    (defn ^:private args->fn-body [args]
      (m/match args
-       [?f (m/pred (some-fn keyword? string?) ?x) (m/pred (some-fn keyword? string?) ?y)]
+       [?f (some-of? [keyword? string?] ?x) (some-of? [keyword? string?] ?y)]
        `(~?f (get ~'m ~?x) (get ~'m ~?y))
-       [?f (m/pred #(instance? java.util.regex.Pattern %) ?x) (m/pred (some-fn keyword? string?) ?y)]
+       [?f (m/pred #(instance? java.util.regex.Pattern %) ?x) (some-of? [keyword? string?] ?y)]
        `(~?f ~?x (get ~'m ~?y))
        [?f ?x ?y]
        `(~?f (get ~'m ~?x) ~?y))))
@@ -90,17 +96,17 @@
   (m/match args
     ;; [:> :a :b]
     [(m/pred fn? ?f)
-     (m/pred (some-fn keyword? string?) ?k)
-     (m/pred (some-fn keyword? string?) ?j)]
+     (some-of? [keyword? string?] ?k)
+     (some-of? [keyword? string?] ?j)]
     (filter (fn [m] (?f (get m ?k) (get m ?j))))
     ;; [:> :a 1]
     [(m/pred fn? ?f)
-     (m/pred (some-fn keyword? string?) ?k)
+     (some-of? [keyword? string?]?k)
      (m/some ?v)]
     (filter (fn [m] (?f (get m ?k) ?v)))
     ;; [even? :a]
     [(m/pred fn? ?f)
-     (m/pred (some-fn keyword? string?) ?k)]
+     (some-of? [keyword? string?]?k)]
     (filter (fn [m] (?f (get m ?k))))))
 
 (comment
@@ -167,7 +173,7 @@
     (comp (x/transjuxt [(column-names ?x) (x/into [])])
           (map (fn [[ks coll]] (=>> coll (select-columns ks)))))
     ;; ks ...
-    ((m/pred (some-fn keyword? string?) !ks) ...)
+    ((some-of? [keyword? string?] !ks) ...)
     (map #(persistent! (reduce (fn [acc k] (assoc! acc k (get % k))) (transient {}) !ks)))
     ;; [ks]
     (?ks)
@@ -179,23 +185,23 @@
 (defn set [& args]
   (m/find args
     ;; i key val
-    ((m/pred integer? ?i) (m/pred (some-fn keyword? string?) ?k) ?v)
+    ((m/pred integer? ?i) (some-of? [keyword? string?] ?k) ?v)
     (map-indexed (fn [i m] (if (= i ?i) (assoc m ?k ?v) m)))
     ;; i map
     ((m/pred integer? ?i) (m/pred map? ?m))
     (map-indexed (fn [i m] (if (= i ?i) ?m m)))
     ;; key [fn keys/vals]
-    ((m/pred (some-fn keyword? string?) ?k)
+    ((some-of? [keyword? string?] ?k)
      [(m/pred fn? ?f) . !ks ...])
-    (map (fn [m] (let [args (mapv (fn [k] (if ((some-fn keyword? string?) k)
+    (map (fn [m] (let [args (mapv (fn [k] (if (or (keyword? k) (string? k))
                                           (get m k) k)) !ks)
                       v    (apply ?f args)]
                   (assoc m ?k v))))
     ;; key fn
-    ((m/pred (some-fn keyword? string?) ?k) (m/pred fn? ?fn))
+    ((some-of? [keyword? string?] ?k) (m/pred fn? ?fn))
     (map (fn [m] (assoc m ?k (?fn m))))
     ;; key coll
-    ((m/and ?k (m/pred (some-fn keyword? string?)))
+    ((m/and ?k (some-of? [keyword? string?]))
      (m/pred coll? ?coll))
     (let [xs (volatile! (seq ?coll))]
       (fn [xf]
@@ -208,23 +214,22 @@
                  (xf acc (assoc e ?k v)))
              (ensure-reduced acc))))))
     ;; key val
-    ((m/pred (some-fn keyword? string?) ?k) ?v)
+    ((some-of? [keyword? string?] ?k) ?v)
     (map (fn [m] (assoc m ?k ?v)))
     ;; {k [f keys/vals]}
     ((m/and ?args
-            (m/map-of (m/pred (some-fn keyword? string?) !ks)
+            (m/map-of (some-of? [keyword? string?] !ks)
                       [(m/pred fn?) . _ ...])))
     (map (fn [m]
            (persistent!
              (reduce-kv
                (fn [acc k [f & ks]]
-                 (let [args (mapv (fn [k] (if ((some-fn keyword? string?) k)
-                                           (get m k) k)) ks)]
+                 (let [args (mapv (fn [k] (if ((some-fn keyword? string?) k) (get m k) k)) ks)]
                    (assoc! acc k (apply f args))))
                (transient m)
                ?args))))
     ;; {k f} ...
-    ((m/map-of (m/pred (some-fn keyword? string?) !ks)
+    ((m/map-of (some-of? [keyword? string?] !ks)
                (m/pred fn? !fns)))
     (let [kfns (mapv vector !ks !fns)]
       (map (fn [m]
@@ -259,7 +264,7 @@
     ((m/and ?pred (m/pred fn?)) ?v)
     (map (fn [m] (if (?pred m) ?v m)))
     ;; k fn val
-    ((m/and ?k (m/pred (some-fn keyword? string?)))
+    ((some-of? [keyword? string?] ?k)
      (m/and ?pred (m/pred fn?)) ?v)
     (map (fn [m] (if (?pred (get m ?k)) (assoc m ?k ?v) m)))))
 
@@ -271,11 +276,11 @@
 (defn update [& args]
   (m/match args
     ;; k fn
-    ((m/and ?k (m/pred (some-fn keyword? string?)))
+    ((some-of? [keyword? string?] ?k)
      (m/and ?f (m/pred fn?)))
     (map (fn [m] (clojure.core/update m ?k ?f)))
     ;; k pred fn
-    ((m/and ?k (m/pred (some-fn keyword? string?)))
+    ((some-of? [keyword? string?] ?k)
      (m/and ?pred (m/pred fn?))
      (m/and ?f (m/pred fn?)))
     (map (fn [m] (if (?pred (get m ?k)) (clojure.core/update m ?k ?f) m)))
@@ -314,16 +319,16 @@
     (let [?xs (into #{} !ks)]
       (keep-indexed (fn [i m] (when-not (contains? ?xs i) m))))
     ;; ks
-    ((m/pred (some-fn keyword? string?) !ks) ...)
+    ((some-of? [keyword? string?] !ks) ...)
     (map (fn [m] (apply dissoc m !ks)))
     ;; [ks]
-    ([(m/pred (some-fn keyword? string?) !ks) ...])
+    ([(some-of? [keyword? string?] !ks) ...])
     (map (fn [m] (apply dissoc m !ks)))
     ;; fn
     ((m/pred fn? ?f))
     (remove ?f)
     ;; k fn
-    ((m/pred (some-fn keyword? string?) ?k) (m/pred fn? ?f))
+    ((some-of? [keyword? string?] ?k) (m/pred fn? ?f))
     (remove (fn [m] (?f (get m ?k))))
     ;; regex
     ((m/pred #(instance? java.util.regex.Pattern %) ?x) & _)
@@ -393,19 +398,18 @@
   (into [] (fillna 0) [{:a 1 :b 1} {:a 2 :b nil} {:a 3 :b 3}]))
 
 (defn group-by [& args]
-  (println args)
   (m/match args
     ;; k f
-    ((m/pred (some-fn keyword? fn?) ?f) (m/pred fn? ?xf))
+    ((some-of? [keyword? fn?] ?f) (m/pred fn? ?xf))
     (x/by-key ?f ?xf)
     ;; [k j] f
-    ([(m/pred (some-fn keyword? fn?) !fs) ...] (m/pred fn? ?xf))
+    ([(some-of? [keyword? fn?] !fs) ...] (m/pred fn? ?xf))
     (x/by-key (apply juxt !fs) ?xf)
     ;; k map
-    ((m/pred (some-fn keyword? fn?) ?f) (m/pred map? ?m))
+    ((some-of? [keyword? fn?] ?f) (m/pred map? ?m))
     (x/by-key ?f (agg/aggregate ?m))
     ;; [k j] map
-    ([(m/pred (some-fn keyword? fn?) !fs) ...] (m/pred map? ?m))
+    ([(some-of? [keyword? fn?] !fs) ...] (m/pred map? ?m))
     (x/by-key (apply juxt !fs) (agg/aggregate ?m))))
 
 (comment
