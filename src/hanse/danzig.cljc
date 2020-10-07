@@ -101,30 +101,37 @@
     :root            math/root
     (m/pred fn? ?fn) ?fn))
 
-(defn where* [args]
+(defn where* [& args]
   (m/match args
     ;; f
-    (m/pred fn? ?f)
+    ((m/pred fn? ?f))
     (filter (fn [m] (?f m)))
+    ;; k v
+    ((m/pred (some-fn keyword? string?) ?k) (m/and (m/not (m/pred fn? ?v)) (m/some ?v)))
+    (filter (fn [m] (= ?v (get m ?k))))
     ;; [f . !ks]
-    [(m/pred fn? ?f) .
-     (m/pred (some-fn keyword? string?) !ks) ...]
+    ([(m/pred fn? ?f) .
+      (m/pred (some-fn keyword? string?) !ks) ...])
     (filter (fn [m] (apply ?f (persistent!
                                (reduce (fn [acc k] (conj! acc (get m k)))
                                        (transient [])
                                        !ks)))))
     ;; [?f ?k ?v]
-    [(m/pred fn? ?f)
-     (m/pred (some-fn keyword? string?) ?k)
-     (m/some ?v)]
+    ([(m/pred fn? ?f)
+      (m/pred (some-fn keyword? string?) ?k)
+      (m/some ?v)])
     (filter (fn [m] (?f (get m ?k) ?v)))
-    ;; [even? :a]
-    [(m/pred fn? ?f)
-     (m/pred (some-fn keyword? string?) ?k)]
+    ;; ?f ?k
+    ((m/pred fn? ?f)
+     (m/pred (some-fn keyword? string?) ?k))
+    (filter (fn [m] (?f (get m ?k))))
+    ;; ?k ?f
+    ((m/pred (some-fn keyword? string?) ?k)
+     (m/pred fn? ?f))
     (filter (fn [m] (?f (get m ?k))))
     ;; [f [f args] k]
-    [(m/pred fn? ?fn1) [(m/pred (some-fn fn? keyword?) ?fn2) & ?xs]
-     (m/pred (some-fn keyword? string?) ?k)]
+    ([(m/pred fn? ?fn1) [(m/pred (some-fn fn? keyword?) ?fn2) & ?xs]
+      (m/pred (some-fn keyword? string?) ?k)])
     (let [?fn2 (k->fn ?fn2)]
       (filter (fn [m] (?fn1 (apply ?fn2
                                   (persistent!
@@ -133,9 +140,9 @@
                                             ?xs)))
                            (get m ?k)))))
     ;; [f [f args] [f args]]
-    [(m/pred fn? ?fn1)
-     [(m/pred (some-fn fn? keyword?) ?fn2) & ?xs1]
-     [(m/pred (some-fn fn? keyword?) ?fn3) & ?xs2]]
+    ([(m/pred fn? ?fn1)
+      [(m/pred (some-fn fn? keyword?) ?fn2) & ?xs1]
+      [(m/pred (some-fn fn? keyword?) ?fn3) & ?xs2]])
     (let [?fn2 (k->fn ?fn2)
           ?fn3 (k->fn ?fn3)]
       (filter (fn [m] (?fn1 (apply ?fn2
@@ -150,8 +157,27 @@
                                             ?xs2)))))))))
 
 (comment
+  (=>> data (where* (fn [{:keys [a]}] (= a 1))) (take 1))
+  ;; => [{:a 1, :b 67, :c -82}]
+  (=>> data (where* :a 1) (take 1))
+  ;; => [{:a 1, :b 67, :c -82}]
   (=>> data (where* [= :a :b :c]) (take 1))
-  ;; => [{:a -52, :b -52, :c -52}]
+  ;; => [{:a 0, :b 0, :c 0}]
+  (=>> data (where* [= :a 1]) (take 1))
+  ;; => [{:a 1, :b 67, :c -82}]
+  (=>> data (where* even? :a) (take 1))
+  ;; => [{:a 16, :b -10, :c 36}]
+  (=>> data (where* :a even?) (take 1))
+  ;; => [{:a 16, :b -10, :c 36}]
+  (=>> data (where* [< [+ :a :b] :c]) (take 1))
+  ;; => [{:a 16, :b -10, :c 36}]
+  (=>> data (where* [< [+ :a :b] [+ :c :a]]) (take 1))
+  ;; => [{:a 16, :b -10, :c 36}]
+  [(e/qb 1 (=>> data (where* (fn [{:keys [a]}] (= a 1)))))
+   (e/qb 1 (=>> data (where* :a 1)))
+   (e/qb 1 (=>> data (where* [= :a 1])))]
+  ;; => [92.68 61.95 62.84]
+  
   [(e/qb 1 (=>> data (where* [= [* :a :c] :b])))
    (e/qb 1 (=>> data (where* (fn [{:keys [a c b]}] (= (* a c) b)))))]
   ;; => [466.8 150.76]
@@ -160,17 +186,11 @@
   ;; => [891.75 182.62]
   )
 
-(comment
-  (=>> data (where* [even? :a]) (take 1))
-  ;; => [{:a 58, :b 94, :c -70}]
-  )
-
-#?(:clj
-   (defmacro where [args]
-     (m/match args
-       [:and & ?xs] `(filter (fn [~'m] (and-macro ~?xs)))
-       [:or & ?xs]  `(filter (fn [~'m] (or-macro ~?xs)))
-       _            `(where* ~args))))
+(defmacro where [args]
+  (m/match args
+    [:and & ?xs] `(filter (fn [~'m] (and-macro ~?xs)))
+    [:or & ?xs]  `(filter (fn [~'m] (or-macro ~?xs)))
+    _            `(where* ~args)))
 
 
 (comment
@@ -232,9 +252,9 @@
 (defn rename-columns [m]
   (map #(clojure.set/rename-keys % m)))
 
+
 (defn set [& args]
   (m/find args
-    ;; i key val
     ((m/pred integer? ?i) (m/pred (some-fn keyword? string?) ?k) ?v)
     (map-indexed (fn [i m] (if (= i ?i) (assoc m ?k ?v) m)))
     ;; i map
@@ -244,9 +264,9 @@
     ((m/pred (some-fn keyword? string?) ?k)
      [(m/pred fn? ?f) . !ks ...])
     (map (fn [m] (let [args (mapv (fn [k] (if (or (keyword? k) (string? k))
-                                            (get m k) k)) !ks)
-                       v    (apply ?f args)]
-                   (assoc m ?k v))))
+                                          (get m k) k)) !ks)
+                      v    (apply ?f args)]
+                  (assoc m ?k v))))
     ;; key fn
     ((m/pred (some-fn keyword? string?) ?k) (m/pred fn? ?fn))
     (map (fn [m] (assoc m ?k (?fn m))))
@@ -264,7 +284,7 @@
                  (xf acc (assoc e ?k v)))
              (ensure-reduced acc))))))
     ;; key val
-    ((m/pred (some-fn keyword? string?) ?k) ?v)
+    ((m/pred (some-fn keyword? string?) ?k) (m/some ?v))
     (map (fn [m] (assoc m ?k ?v)))
     ;; {k [f keys/vals]}
     ((m/and ?args
@@ -278,6 +298,14 @@
                    (assoc! acc k (apply f args))))
                (transient m)
                ?args))))
+    ;; {?k ?v}
+    ((m/map-of (m/pred (some-fn keyword? string?) !ks) (m/some !vs)))
+    (map (fn [m]
+           (persistent!
+             (reduce-kv
+               (fn [acc k v] (assoc! acc k v))
+               (transient m)
+               (m/subst {& [[!ks !vs] ...]})))))
     ;; {k f} ...
     ((m/map-of (m/pred (some-fn keyword? string?) !ks)
                (m/pred fn? !fns)))
@@ -291,21 +319,21 @@
     _ (throw (ex-info "non exhaustive pattern match" {}))))
 
 (comment
-  (=>> data (set 0 :a 999) (take 2))
-  ;; => [{:a 999, :b 43, :c 7} {:a 58, :b 94, :c -70}]
-  (=>> data (set 0 {:a nil :b nil :c nil}) (take 2))
-  ;; => [{:a nil, :b nil, :c nil} {:a 58, :b 94, :c -70}]
-  (=>> data (set :new 0) (take 2))
-  ;; => [{:a -91, :b 43, :c 7, :new 0} {:a 58, :b 94, :c -70, :new 0}]
-  (=>> data (set :new [+ :a 1]) (take 2))
-  ;; => [{:a -91, :b 43, :c 7, :new -48} {:a 58, :b 94, :c -70, :new 152}]
+  (=>> data (set :a 0) (take 1))
+  ;; => [{:a 0, :b -10, :c 36}]
+  (=>> data (set {:a 0}) (take 1))
+  ;; => [{:a 0, :b -10, :c 36}]
+  (=>> data (set 0 :a 999) (take 1))
+  ;; => [{:a 999, :b -10, :c 36}]
+  (=>> data (set 0 {:a nil :b nil :c nil}) (take 1))
+  ;; => [{:a nil, :b nil, :c nil}]
+  (=>> data (set :new [+ :a 1]) (take 1))
+  ;; => [{:a 16, :b -10, :c 36, :new 17}]
   (=>> data
        (set {:new-a [+ :a 1]
              :new-b [+ :b 1]})
-       (take 2))
-  ;; => [{:a 70, :b -13, :c 45, :new-a 71, :new-b -12}
-  ;;     {:a -37, :b 41, :c 45, :new-a -36, :new-b 42}]
-  (=>> [{:a 1} {:a 1}] (set :new 1))
+       (take 1))
+  ;; => [{:a 16, :b -10, :c 36, :new-a 17, :new-b -9}]
   )
 
 (defn replace [& args]
@@ -448,24 +476,40 @@
   (into [] (fillna 0) [{:a 1 :b 1} {:a 2 :b nil} {:a 3 :b 3}]))
 
 (defn group-by [& args]
+  (println args)
   (m/match args
     ;; k f
-    ((m/pred (some-fn keyword? fn?) ?f) (m/pred fn? ?xf))
+    (m/seqable (m/pred (some-fn keyword? fn?) ?f) (m/pred fn? ?xf))
     (x/by-key ?f ?xf)
     ;; [k j] f
-    ([(m/pred (some-fn keyword? fn?) !fs) ...] (m/pred fn? ?xf))
+    (m/seqable [(m/pred (some-fn keyword? fn?) !fs) ...] (m/pred fn? ?xf))
     (x/by-key (apply juxt !fs) ?xf)
-    ;; k map
-    ((m/pred (some-fn keyword? fn?) ?f) (m/pred map? ?m))
+    ;; ?f {& [[?k ?f] ...]}
+    (m/seqable (m/pred (some-fn keyword? fn?) ?f) (m/pred map? ?m))
     (x/by-key ?f (agg/aggregate ?m))
+    ;; ?f [[ks fns] ...]
+    (m/seqable (m/pred (some-fn keyword? fn?) ?f) (m/pred vector? ?coll))
+    (x/by-key ?f (agg/aggregate ?coll))
     ;; [k j] map
-    ([(m/pred (some-fn keyword? fn?) !fs) ...] (m/pred map? ?m))
-    (x/by-key (apply juxt !fs) (agg/aggregate ?m))))
+    (m/seqable [(m/pred (some-fn keyword? fn?) !fs) ...] (m/pred map? ?m))
+    (x/by-key (apply juxt !fs) (agg/aggregate ?m))
+    ;; ...
+    (?k [!coll ...] '...)
+    (comp (group-by ?k (into [?k :first] !coll)) (map second))
+    
+    (?k {:as ?m} '...)
+    (comp (group-by ?k (assoc ?m ?k :first)) (map second))
+    ))
 
 (comment
   (=>> [{:a 1 :c 1} {:a 1 :c 2} {:a 2 :c 3} {:a 2 :c 4}] (group-by :a {:c :sum}))
   (=>> data (group-by :a {:c :sum
                           :b :sum}))
+  (=>> data (group-by :a {:c :sum
+                          :b :sum} '...))
+  (=>> data (group-by :a [:c :sum :b :sum]))
+  (=>> data (group-by :a [:c :sum :b :sum] '...))
+  (=>> data (x/by-key :a [(comp (map :a) (x/into []))]))
   [(e/qb 1 (=>> data (group-by :a {:b-mean [:b :mean]
                                    :b-sum  [:b :sum]
                                    :c-mean [:c :mean]

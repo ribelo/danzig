@@ -1,8 +1,9 @@
 (ns hanse.danzig.aggregate
   (:refer-clojure :exclude [first last min max count])
   (:require
-   [net.cgrand.xforms :as x]
-   [meander.epsilon :as m]
+   [net.cgrand.xforms   :as x]
+   [meander.epsilon     :as m]
+   [hanse.rostock.math  :as math]
    [hanse.rostock.stats :as stats]))
 
 (defn map->rfs [k rf]
@@ -59,35 +60,55 @@
 (defn into-set [k]
   (map->rfs k (x/into #{})))
 
-(def agg->fn
-  {:first      first
-   :last       last
-   :min        min
-   :max        max
-   :count      count
-   :sum        sum
-   :mean       mean
-   :median     median
-   :std        std
-   :quantile   quantile
-   :percentile percentile
-   :iqr        iqr
-   :variance   variance
-   :covariance covariance
-   :into-vec   into-vec
-   :into-map   into-map
-   :into-set   into-set})
+(defn round [k]
+  (map->rfs k (map math/round)))
 
-(defn aggregate [m]
-  (x/transjuxt
-   (persistent!
-    (reduce-kv
-     (fn [acc k f]
-       (let [f (m/match f
-                 (m/pred fn? ?f) ?f
-                 (m/pred keyword? ?k) ((agg->fn ?k) k)
-                 [(m/pred keyword? ?k) (m/pred keyword? ?f)] ((agg->fn ?f) ?k)
-                 [(m/pred keyword? ?k) (m/pred fn? ?f)] (comp (map ?k) ?f))]
-         (assoc! acc k f)))
-     (transient {})
-     m))))
+(defn round2 [k]
+  (map->rfs k (map math/round2)))
+
+(defn agg->fn [f]
+  (m/match f
+    :first           first
+    :last            last
+    :min             min
+    :max             max
+    :count           count
+    :sum             sum
+    :mean            mean
+    :median          median
+    :std             std
+    :quantile        quantile
+    :percentile      percentile
+    :iqr             iqr
+    :variance        variance
+    :covariance      covariance
+    :into-vec        into-vec
+    :into-map        into-map
+    :into-set        into-set
+    (m/pred fn? ?fn) ?fn))
+
+(defn aggregate [arg]
+  (m/match arg
+    ;; {& [[!ks !fns] ...]}
+    {:as ?m}
+    (x/transjuxt
+      (persistent!
+        (reduce-kv
+          (fn [acc k f]
+            (let [f (m/match f
+                      (m/pred fn? ?f)                             ?f
+                      (m/pred keyword? ?k)                        ((agg->fn ?k) k)
+                      [(m/pred keyword? ?k) (m/pred keyword? ?f)] ((agg->fn ?f) ?k)
+                      [(m/pred keyword? ?k) (m/pred fn? ?f)]      (comp (map ?k) ?f))]
+              (assoc! acc k f)))
+          (transient {})
+          ?m)))
+    ;; [!ks !fns ...]]}
+    [(m/pred (some-fn fn? keyword?) !ks) (m/pred (some-fn fn? keyword?) !fns) ...]
+    (x/transjuxt
+      (persistent!
+        (reduce
+          (fn [acc [k f]]
+            (conj! acc ((agg->fn f) k)))
+          (transient [])
+          (m/subst [[!ks !fns] ...]))))))
