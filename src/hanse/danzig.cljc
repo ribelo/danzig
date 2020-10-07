@@ -186,16 +186,21 @@
   ;; => [891.75 182.62]
   )
 
-(defmacro where [args]
+(defmacro where [& args]
   (m/match args
-    [:and & ?xs] `(filter (fn [~'m] (and-macro ~?xs)))
-    [:or & ?xs]  `(filter (fn [~'m] (or-macro ~?xs)))
-    _            `(where* ~args)))
+    ([:and & ?xs]) `(filter (fn [~'m] (and-macro ~?xs)))
+    ([:or & ?xs])  `(filter (fn [~'m] (or-macro ~?xs)))
+    _              `(where* ~@args)))
 
 
 (comment
   (=>> data (where [> :a :b]) (take 1))
-  ;; => [{:a 58, :b 94, :c -70}]
+  ;; => [{:a -5, :b -6, :c 51}]
+  (=>> data (where [:and
+                    [> :a :b]
+                    [> :a :c]]) (take 1))
+  ;; => [{:a 96, :b -32, :c 65}]
+  (=>> data (where ))
   )
 
 (comment
