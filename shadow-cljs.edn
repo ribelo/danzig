@@ -1,6 +1,0 @@
-;; shadow-cljs configuration
-{:deps   {:aliases [:shadow-cljs]}
- :nrepl  {:port 7002}
- :builds {:repl {:target    :node-script
-                 :main      hanse.danzig.repl/main
-                 :output-to "dist/danzig.js"}}}

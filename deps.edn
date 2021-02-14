@@ -1,7 +1,8 @@
-{:paths   ["src" "env/dev"]
- :deps    {net.cgrand/xforms    {:mvn/version "0.19.2"}
-           clojure.java-time    {:mvn/version "0.3.2"}
-           ribelo.hansa/rostock {:git/url "https://github.com/ribelo/rostock"
-                                 :sha     "fde8c0a0195ed370370e7cda1a5a3fcb1efd3eaa"}
-           meander/epsilon      {:mvn/version "0.0.488"}}
- :aliases {:cljs {:extra-deps {thheller/shadow-cljs {:mvn/version "2.8.89"}}}}}
+{:paths ["src"]
+ :deps  {net.cgrand/xforms                   {:mvn/version "0.19.2"}
+         clojure.java-time/clojure.java-time {:mvn/version "0.3.2"}
+         meander/epsilon                     {:mvn/version "0.0.588"}
+         ribelo/kemnath                      {:git/url "https://github.com/ribelo/kemnath"
+                                              :sha     "7fae2514a43c3de07a5a173319a9ee7065989dcf"}
+         ribelo/stade                        {:git/url "https://github.com/ribelo/stade"
+                                              :sha     "5b01e968203d6d12e710ed5aef266f36e0588089"}}}

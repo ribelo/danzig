@@ -1,21 +1,22 @@
-(ns hanse.danzig
+(ns ribelo.danzig
   (:refer-clojure :exclude [set replace sort-by drop fill group-by merge update])
-  #?(:cljs (:require-macros [hanse.danzig :refer [=>> +>> and-macro or-macro where]]))
+  #?(:cljs (:require-macros [ribelo.danzig :refer [=>> +>> and-macro or-macro where]]))
   (:require
    [net.cgrand.xforms :as x]
    #?(:clj [java-time :as jt])
    [meander.epsilon :as m]
-   [hanse.danzig.relationship]
-   [hanse.rostock.math :as math]
-   #?(:clj [hanse.rostock.stats :as stats])
-   #?(:clj [hanse.danzig.aggregate :as agg])))
+   [ribelo.kemnath :as math]
+   #?(:clj [ribelo.stade :as stats])
+   #?(:clj [ribelo.danzig.aggregate :as agg])))
 
 (comment
   (do
     (require '[taoensso.encore :as e])
-    (def data (repeatedly 1000000 (fn [] {:a (* (rand-int 100) (if (e/chance 0.5) 1 -1))
-                                         :b (* (rand-int 100) (if (e/chance 0.5) 1 -1))
-                                         :c (* (rand-int 100) (if (e/chance 0.5) 1 -1))})))))
+    (def data (vec (repeatedly 1000000 (fn [] {:a (* (rand-int 100) (if (e/chance 0.5) 1 -1))
+                                              :b (* (rand-int 100) (if (e/chance 0.5) 1 -1))
+                                              :c (* (rand-int 100) (if (e/chance 0.5) 1 -1))}))))))
+
+
 (defn comp-some [& fns]
   (apply comp (filter identity fns)))
 
@@ -32,8 +33,8 @@
         :else         (recur forms (conj xfs form) after output))
       (let [xfs (->> xfs (remove nil?))]
         (if after
-          `(~after (into ~output ~@(when (not-empty xfs) `((comp-some ~@xfs))) ~coll))
-          `(into ~output ~@(when (not-empty xfs) `((comp-some ~@xfs))) ~coll))))))
+          `(~after (into ~output ~@(when (not-empty xfs) `((comp ~@xfs))) ~coll))
+          `(into ~output ~@(when (not-empty xfs) `((comp ~@xfs))) ~coll))))))
 
 (defmacro +>> [coll & body] `(=>> ~coll ~@body {}))
 
@@ -113,9 +114,9 @@
     ([(m/pred fn? ?f) .
       (m/pred (some-fn keyword? string?) !ks) ...])
     (filter (fn [m] (apply ?f (persistent!
-                               (reduce (fn [acc k] (conj! acc (get m k)))
-                                       (transient [])
-                                       !ks)))))
+                                (reduce (fn [acc k] (conj! acc (get m k)))
+                                        (transient [])
+                                        !ks)))))
     ;; [?f ?k ?v]
     ([(m/pred fn? ?f)
       (m/pred (some-fn keyword? string?) ?k)
@@ -134,11 +135,11 @@
       (m/pred (some-fn keyword? string?) ?k)])
     (let [?fn2 (k->fn ?fn2)]
       (filter (fn [m] (?fn1 (apply ?fn2
-                                  (persistent!
-                                    (reduce (fn [acc k] (conj! acc (if (keyword? k) (get m k) k)))
-                                            (transient [])
-                                            ?xs)))
-                           (get m ?k)))))
+                                   (persistent!
+                                     (reduce (fn [acc k] (conj! acc (if (keyword? k) (get m k) k)))
+                                             (transient [])
+                                             ?xs)))
+                            (get m ?k)))))
     ;; [f [f args] [f args]]
     ([(m/pred fn? ?fn1)
       [(m/pred (some-fn fn? keyword?) ?fn2) & ?xs1]
@@ -146,19 +147,23 @@
     (let [?fn2 (k->fn ?fn2)
           ?fn3 (k->fn ?fn3)]
       (filter (fn [m] (?fn1 (apply ?fn2
-                                  (persistent!
-                                    (reduce (fn [acc k] (conj! acc (if (keyword? k) (get m k) k)))
-                                            (transient [])
-                                            ?xs1)))
-                           (apply ?fn3
-                                  (persistent!
-                                    (reduce (fn [acc k] (conj! acc (if (keyword? k) (get m k) k)))
-                                            (transient [])
-                                            ?xs2)))))))))
+                                   (persistent!
+                                     (reduce (fn [acc k] (conj! acc (if (keyword? k) (get m k) k)))
+                                             (transient [])
+                                             ?xs1)))
+                            (apply ?fn3
+                                   (persistent!
+                                     (reduce (fn [acc k] (conj! acc (if (keyword? k) (get m k) k)))
+                                             (transient [])
+                                             ?xs2)))))))))
 
 (comment
-  (=>> data (where* (fn [{:keys [a]}] (= a 1))) (take 1))
+  (e/qb 1e1 (=>> data (where* (fn [{:keys [a]}] (= a 1)))))
   ;; => [{:a 1, :b 67, :c -82}]
+
+  (e/qb 1e1 (doall (m/search data
+                     (m/scan {:a 1 :as ?x}) ?x)))
+
   (=>> data (where* :a 1) (take 1))
   ;; => [{:a 1, :b 67, :c -82}]
   (=>> data (where* [= :a :b :c]) (take 1))
@@ -269,9 +274,9 @@
     ((m/pred (some-fn keyword? string?) ?k)
      [(m/pred fn? ?f) . !ks ...])
     (map (fn [m] (let [args (mapv (fn [k] (if (or (keyword? k) (string? k))
-                                          (get m k) k)) !ks)
-                      v    (apply ?f args)]
-                  (assoc m ?k v))))
+                                            (get m k) k)) !ks)
+                       v    (apply ?f args)]
+                   (assoc m ?k v))))
     ;; key fn
     ((m/pred (some-fn keyword? string?) ?k) (m/pred fn? ?fn))
     (map (fn [m] (assoc m ?k (?fn m))))
@@ -757,18 +762,3 @@
 (comment
   (into [] (tail) data))
 
-;; (def describe
-;;   (comp
-;;    (x/transjuxt {:ks columns
-;;                  :xs (x/into [])})
-;;    (mapcat (fn [{:keys [ks xs]}]
-;;              (into {}
-;;                    (map (fn [k]
-;;                           (x/transjuxt
-;;                            {k (x/transjuxt {:count (agg/count k)
-;;                                             :mean  (agg/mean k)
-;;                                             :std   (agg/std k)
-;;                                             :min   (agg/min k)
-;;                                             :max   (agg/max k)})}
-;;                            xs))
-;;                         ks))))))

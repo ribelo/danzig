@@ -1,10 +1,10 @@
-(ns hanse.danzig.aggregate
+(ns ribelo.danzig.aggregate
   (:refer-clojure :exclude [first last min max count])
   (:require
-   [net.cgrand.xforms   :as x]
-   [meander.epsilon     :as m]
-   [hanse.rostock.math  :as math]
-   [hanse.rostock.stats :as stats]))
+   [net.cgrand.xforms :as x]
+   [meander.epsilon :as m]
+   [ribelo.kemnath :as math]
+   [ribelo.stade :as stats]))
 
 (defn map->rfs [k rf]
   (comp (map k) rf))

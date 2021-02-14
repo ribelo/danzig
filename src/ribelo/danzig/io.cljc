@@ -1,4 +1,4 @@
-(ns hanse.danzig.io
+(ns ribelo.danzig.io
   (:require
    [net.cgrand.xforms :as x]
    #?(:clj [net.cgrand.xforms.io :as xio])
