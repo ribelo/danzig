@@ -11,32 +11,54 @@
 
 (comment
   (do
-    (require '[taoensso.encore :as e])
-    (def data (vec (repeatedly 1000000 (fn [] {:a (* (rand-int 100) (if (e/chance 0.5) 1 -1))
-                                              :b (* (rand-int 100) (if (e/chance 0.5) 1 -1))
-                                              :c (* (rand-int 100) (if (e/chance 0.5) 1 -1))}))))))
-
+    (require '[taoensso.encore :as enc])
+    (def data (vec (repeatedly 1000000 (fn [] {:a (* (rand-int 100) (if (enc/chance 0.5) 1 -1))
+                                              :b (* (rand-int 100) (if (enc/chance 0.5) 1 -1))
+                                              :c (* (rand-int 100) (if (enc/chance 0.5) 1 -1))}))))))
 
 (defn comp-some [& fns]
   (apply comp (filter identity fns)))
 
 (defmacro =>> [coll & forms]
-  (loop [[form & forms] forms xfs [] after nil output []]
+  (loop [[form & forms] forms xfs [] threads [] output []]
     (if form
       (cond
-        (= '[] form)  (recur forms xfs after nil)
-        (= '{} form)  (recur forms xfs after {})
-        (= '#{} form) (recur forms xfs after #{})
-        (= '. form)   (recur forms (conj xfs '(take 1)) 'first output)
-        (= '.. form)  (recur forms (conj xfs '(take 1)) 'ffirst output)
-        (= '... form) (recur forms (conj xfs (mapcat identity)) after output)
-        :else         (recur forms (conj xfs form) after output))
-      (let [xfs (->> xfs (remove nil?))]
-        (if after
-          `(~after (into ~output ~@(when (not-empty xfs) `((comp ~@xfs))) ~coll))
-          `(into ~output ~@(when (not-empty xfs) `((comp ~@xfs))) ~coll))))))
+        (= '[]  form)
+        (recur forms xfs threads output)
+        ;;
+        (= '{}  form)
+        (recur forms xfs threads {})
+        ;;
+        (= '#{} form)
+        (recur forms xfs threads #{})
+        ;;
+        (and (list? form) (= '->  (first form)))
+        (recur forms xfs (conj threads form) output)
+        ;;
+        (and (list? form) (= '->> (first form)))
+        (recur forms xfs (conj threads form) output)
+        ;;
+        (or (= 'first form) (and (list? form) (= 'first (first form))))
+        (recur forms (conj xfs `(take 1)) (conj threads (-> form)) output)
+        ;;
+        (or (= 'last form) (and (list? form) ('first (first form))))
+        (recur forms (conj xfs `(x/take-last 1)) (conj threads (-> form)) output)
+        ;;
+        (= 'into (first form))
+        (recur forms xfs threads (second form))
+        ;;
+        :else
+        (recur forms (conj xfs form) threads output))
+      (let [xfs (->> xfs (remove nil?))
+            main `(into ~output ~@(when (not-empty xfs) `((comp-some ~@xfs))) ~coll)]
+        (if (seq threads)
+          (loop [[form & forms] threads r ['-> main]]
+            (if form
+              (recur forms (conj r form))
+              (reverse (into (list) r))))
+          main)))))
 
-(defmacro +>> [coll & body] `(=>> ~coll ~@body {}))
+(defmacro +>> [coll & body] `(=>> ~coll ~@body '(into {})))
 
 #?(:clj
    (defn ^:private args->fn-body [args]
@@ -49,7 +71,7 @@
        `(~?f (get ~'m ~?x) ~?y))))
 
 #?(:clj
-   (defmacro ^:private and-macro [coll]
+   (defmacro and-macro [coll]
      (loop [[args & coll] coll
             r             '()]
        (if args
@@ -57,8 +79,11 @@
            (recur coll (conj r body)))
          `(clojure.core/and ~@r)))))
 
+(comment
+  (and-macro [:and [:a 1] [:b 2]]))
+
 #?(:clj
-   (defmacro ^:private or-macro [coll]
+   (defmacro or-macro [coll]
      (loop [[args & coll] coll
             r             '()]
        (if args
@@ -70,7 +95,7 @@
   (m/match ks
     (m/pred map?)
     (map #(persistent! (reduce-kv (fn [acc i k] (assoc! acc k (nth % i ""))) (transient {}) ks)))
-    
+
     (m/pred vector? ?x)
     (map #(zipmap ?x %))))
 
@@ -102,125 +127,41 @@
     :root            math/root
     (m/pred fn? ?fn) ?fn))
 
-(defn where* [& args]
-  (m/match args
+(defmacro where* [& args]
+  (m/rewrite args
     ;; f
-    ((m/pred fn? ?f))
-    (filter (fn [m] (?f m)))
+    ((m/pred list? ?f))
+    ?f
     ;; k v
-    ((m/pred (some-fn keyword? string?) ?k) (m/and (m/not (m/pred fn? ?v)) (m/some ?v)))
-    (filter (fn [m] (= ?v (get m ?k))))
-    ;; [f . !ks]
-    ([(m/pred fn? ?f) .
-      (m/pred (some-fn keyword? string?) !ks) ...])
-    (filter (fn [m] (apply ?f (persistent!
-                                (reduce (fn [acc k] (conj! acc (get m k)))
-                                        (transient [])
-                                        !ks)))))
-    ;; [?f ?k ?v]
-    ([(m/pred fn? ?f)
-      (m/pred (some-fn keyword? string?) ?k)
-      (m/some ?v)])
-    (filter (fn [m] (?f (get m ?k) ?v)))
-    ;; ?f ?k
-    ((m/pred fn? ?f)
-     (m/pred (some-fn keyword? string?) ?k))
-    (filter (fn [m] (?f (get m ?k))))
+    ((m/pred keyword? ?k) (m/and (m/not (m/pred (some-fn symbol? list?) ?v)) (m/some ?v)))
+    (fn [m] (= ?v (m ?k)))
+    ;; {?k ?v}
+    ({:as ?m})
+    ~`(fn [m#] (m/find m# ~?m m#))
     ;; ?k ?f
-    ((m/pred (some-fn keyword? string?) ?k)
-     (m/pred fn? ?f))
-    (filter (fn [m] (?f (get m ?k))))
-    ;; [f [f args] k]
-    ([(m/pred fn? ?fn1) [(m/pred (some-fn fn? keyword?) ?fn2) & ?xs]
-      (m/pred (some-fn keyword? string?) ?k)])
-    (let [?fn2 (k->fn ?fn2)]
-      (filter (fn [m] (?fn1 (apply ?fn2
-                                   (persistent!
-                                     (reduce (fn [acc k] (conj! acc (if (keyword? k) (get m k) k)))
-                                             (transient [])
-                                             ?xs)))
-                            (get m ?k)))))
-    ;; [f [f args] [f args]]
-    ([(m/pred fn? ?fn1)
-      [(m/pred (some-fn fn? keyword?) ?fn2) & ?xs1]
-      [(m/pred (some-fn fn? keyword?) ?fn3) & ?xs2]])
-    (let [?fn2 (k->fn ?fn2)
-          ?fn3 (k->fn ?fn3)]
-      (filter (fn [m] (?fn1 (apply ?fn2
-                                   (persistent!
-                                     (reduce (fn [acc k] (conj! acc (if (keyword? k) (get m k) k)))
-                                             (transient [])
-                                             ?xs1)))
-                            (apply ?fn3
-                                   (persistent!
-                                     (reduce (fn [acc k] (conj! acc (if (keyword? k) (get m k) k)))
-                                             (transient [])
-                                             ?xs2)))))))))
-
-(comment
-  (e/qb 1e1 (=>> data (where* (fn [{:keys [a]}] (= a 1)))))
-  ;; => [{:a 1, :b 67, :c -82}]
-
-  (e/qb 1e1 (doall (m/search data
-                     (m/scan {:a 1 :as ?x}) ?x)))
-
-  (=>> data (where* :a 1) (take 1))
-  ;; => [{:a 1, :b 67, :c -82}]
-  (=>> data (where* [= :a :b :c]) (take 1))
-  ;; => [{:a 0, :b 0, :c 0}]
-  (=>> data (where* [= :a 1]) (take 1))
-  ;; => [{:a 1, :b 67, :c -82}]
-  (=>> data (where* even? :a) (take 1))
-  ;; => [{:a 16, :b -10, :c 36}]
-  (=>> data (where* :a even?) (take 1))
-  ;; => [{:a 16, :b -10, :c 36}]
-  (=>> data (where* [< [+ :a :b] :c]) (take 1))
-  ;; => [{:a 16, :b -10, :c 36}]
-  (=>> data (where* [< [+ :a :b] [+ :c :a]]) (take 1))
-  ;; => [{:a 16, :b -10, :c 36}]
-  [(e/qb 1 (=>> data (where* (fn [{:keys [a]}] (= a 1)))))
-   (e/qb 1 (=>> data (where* :a 1)))
-   (e/qb 1 (=>> data (where* [= :a 1])))]
-  ;; => [92.68 61.95 62.84]
-  
-  [(e/qb 1 (=>> data (where* [= [* :a :c] :b])))
-   (e/qb 1 (=>> data (where* (fn [{:keys [a c b]}] (= (* a c) b)))))]
-  ;; => [466.8 150.76]
-  [(e/qb 1 (=>> data (where* [= [* :a :c] [* :a :b]])))
-   (e/qb 1 (=>> data (where* (fn [{:keys [a c b]}] (= (* a c) (* a b))))))]
-  ;; => [891.75 182.62]
-  )
+    ((m/pred keyword? ?k)
+     (m/pred symbol? ?f))
+    (fn [m] (?f (m ?k)))
+    ;; [?f1 [[?f2 & ?xs] | ?k/?v] ...]
+    ([(m/pred (some-fn symbol? list?) ?f) .
+      (m/and !args (m/or (m/pred vector?) (m/some))) ...])
+    ~(let [m (gensym 'map)]
+       `(fn [~m] (~?f ~@(map (fn [x]
+                              (m/rewrite x
+                                [(m/pred (some-fn symbol? list?) ?f) . (m/cata !xs) ...]
+                                (?f & ~!xs)
+                                ;;
+                                (m/pred keyword? ?x)
+                                (~m ?x)
+                                ?x ?x)) !args))))
+    _ (throw (ex-info "non exhaustive pattern match" {}))))
 
 (defmacro where [& args]
-  (m/match args
-    ([:and & ?xs]) `(filter (fn [~'m] (and-macro ~?xs)))
-    ([:or & ?xs])  `(filter (fn [~'m] (or-macro ~?xs)))
-    _              `(where* ~@args)))
+  `(filter (where* ~@args)))
 
 
-(comment
-  (=>> data (where [> :a :b]) (take 1))
-  ;; => [{:a -5, :b -6, :c 51}]
-  (=>> data (where [:and
-                    [> :a :b]
-                    [> :a :c]]) (take 1))
-  ;; => [{:a 96, :b -32, :c 65}]
-  (=>> data (where ))
-  )
-
-(comment
-  [(e/qb 1
-         (=>> data
-              (where [:and
-                      [> :a :b]])))
-   (e/qb 1
-         (=>> data
-              (filter (fn [m] (> (get m :a) 0.0)))
-              (filter (fn [m] (< (get m :a) 50.0)))
-              (filter (fn [m] (< (get m :b) 0.0)))
-              (filter (fn [m] (> (get m :b) -50.0)))))]
-  ;; => [89.73 115.66]
-  )
+(defmacro where-not [& args]
+  `(remove (where* ~@args)))
 
 (defn row-count []
   x/count)
@@ -234,7 +175,7 @@
 (defn column-names [& args]
   (m/match args
     ;; all
-    (m/or (:all) nil (m/pred empty? args))
+    (m/or (::all) nil (m/pred empty? args))
     (comp (take 1) (mapcat keys))
     ;; regex
     ((m/pred #(instance? java.util.regex.Pattern %) ?x) & _)
@@ -262,251 +203,145 @@
 (defn rename-columns [m]
   (map #(clojure.set/rename-keys % m)))
 
-
-(defn set [& args]
-  (m/find args
-    ((m/pred integer? ?i) (m/pred (some-fn keyword? string?) ?k) ?v)
-    (map-indexed (fn [i m] (if (= i ?i) (assoc m ?k ?v) m)))
-    ;; i map
+(defmacro set* [& args]
+  (m/rewrite args
+    ;; ?i ?k ?v
+    ((m/pred integer? ?i) (m/pred keyword? ?k) ?v)
+    (fn [i m] (if (= i ?i) (assoc m ?k ?v) m))
+    ;; ?i ?m
     ((m/pred integer? ?i) (m/pred map? ?m))
-    (map-indexed (fn [i m] (if (= i ?i) ?m m)))
-    ;; key [fn keys/vals]
-    ((m/pred (some-fn keyword? string?) ?k)
-     [(m/pred fn? ?f) . !ks ...])
-    (map (fn [m] (let [args (mapv (fn [k] (if (or (keyword? k) (string? k))
-                                            (get m k) k)) !ks)
-                       v    (apply ?f args)]
-                   (assoc m ?k v))))
-    ;; key fn
-    ((m/pred (some-fn keyword? string?) ?k) (m/pred fn? ?fn))
-    (map (fn [m] (assoc m ?k (?fn m))))
-    ;; key coll
-    ((m/pred (some-fn keyword? string?) ?k)
-     (m/pred coll? ?coll))
-    (let [xs (volatile! (seq ?coll))]
-      (fn [xf]
-        (fn
-          ([] (xf))
-          ([acc] (xf acc))
-          ([acc e]
-           (if-let [v (first @xs)]
-             (do (vswap! xs next)
-                 (xf acc (assoc e ?k v)))
-             (ensure-reduced acc))))))
-    ;; key val
-    ((m/pred (some-fn keyword? string?) ?k) (m/some ?v))
-    (map (fn [m] (assoc m ?k ?v)))
-    ;; {k [f keys/vals]}
-    ((m/and ?args
-            (m/map-of (m/pred (some-fn keyword? string?) !ks)
-                      [(m/pred fn?) . _ ...])))
-    (map (fn [m]
-           (persistent!
-             (reduce-kv
-               (fn [acc k [f & ks]]
-                 (let [args (mapv (fn [k] (if ((some-fn keyword? string?) k) (get m k) k)) ks)]
-                   (assoc! acc k (apply f args))))
-               (transient m)
-               ?args))))
+    (fn [i m] (if (= i ?i) (clojure.core/merge m ?m) m))
+    ;; ?k ?f
+    ((m/pred keyword? ?k) (m/pred (some-fn list? symbol?) ?fn))
+    (fn [m] (assoc m ?k (?fn m)))
+    ;; ?k ?v
+    ((m/pred keyword? ?k) (m/and (m/not (m/pred vector? ?v)) (m/some ?v)))
+    (fn [m] (assoc m ?k ?v))
+    ;; ?k [?f1 [[?f2 & ?xs] | ?k/?v] ...]
+    ((m/pred keyword? ?k)
+     [(m/pred (some-fn symbol? list?) ?f) .
+      (m/and !args (m/or (m/pred vector?) (m/some))) ...])
+    ~(let [m (gensym 'map)]
+       `(fn [~m] (assoc ~m ~?k
+                       (~?f ~@(map (fn [x]
+                                     (m/rewrite x
+                                       [(m/pred (some-fn symbol? list?) ?f) . (m/cata !xs) ...]
+                                       (?f & ~!xs)
+                                       ;;
+                                       (m/pred keyword? ?x)
+                                       (~m ?x)
+                                       ?x ?x)) !args)))))
+    ;; {?k [?f . !ks]}
+    ((m/and ?m (m/map-of (m/pred keyword? !ks) (m/pred vector? !args))))
+    ~`(comp ~@(map (fn [[k v]] `(set* ~k ~v)) ?m))
     ;; {?k ?v}
-    ((m/map-of (m/pred (some-fn keyword? string?) !ks) (m/some !vs)))
-    (map (fn [m]
-           (persistent!
-             (reduce-kv
-               (fn [acc k v] (assoc! acc k v))
-               (transient m)
-               (m/subst {& [[!ks !vs] ...]})))))
+    ((m/and ?m (m/map-of (m/pred keyword? !ks)
+                         (m/not (m/pred (some-fn vector? list? symbol?) !vs)))))
+    ~`(fn [m#]
+        (-> m# ~@(map (fn [[k v]] `(assoc ~k ~v)) ?m)))
     ;; {k f} ...
-    ((m/map-of (m/pred (some-fn keyword? string?) !ks)
-               (m/pred fn? !fns)))
-    (let [kfns (mapv vector !ks !fns)]
-      (map (fn [m]
-             (persistent!
-               (reduce
-                 (fn [acc [k f]] (assoc! acc k (f m)))
-                 (transient m)
-                 kfns)))))
+    ((m/and ?m (m/map-of (m/pred keyword? !ks)
+                         (m/pred (some-fn list? symbol?) !fns))))
+    ~(let [m (gensym 'map)]
+       `(fn [~m]
+          (-> ~m ~@(map (fn [[k f]] `(assoc ~k (~f ~m))) ?m))))
+    ;; :when ?pred ?x
+    (:when ?pred & ?rest)
+    ~`(fn [m#] (if ((where* ~?pred) m#) ((set* ~@?rest) m#) m#))
+    ;;
     _ (throw (ex-info "non exhaustive pattern match" {}))))
 
-(comment
-  (=>> data (set :a 0) (take 1))
-  ;; => [{:a 0, :b -10, :c 36}]
-  (=>> data (set {:a 0}) (take 1))
-  ;; => [{:a 0, :b -10, :c 36}]
-  (=>> data (set 0 :a 999) (take 1))
-  ;; => [{:a 999, :b -10, :c 36}]
-  (=>> data (set 0 {:a nil :b nil :c nil}) (take 1))
-  ;; => [{:a nil, :b nil, :c nil}]
-  (=>> data (set :new [+ :a 1]) (take 1))
-  ;; => [{:a 16, :b -10, :c 36, :new 17}]
-  (=>> data
-       (set {:new-a [+ :a 1]
-             :new-b [+ :b 1]})
-       (take 1))
-  ;; => [{:a 16, :b -10, :c 36, :new-a 17, :new-b -9}]
-  )
+(defmacro set [& args]
+  (m/rewrite args
+    ((m/pred number?) & _)
+    ~`(map-indexed (set* ~@args))
+    _
+    ~`(map (set* ~@args))))
 
-(defn replace [& args]
-  (m/match args
-    ;; fn val
-    ((m/and ?pred (m/pred fn?)) ?v)
-    (map (fn [m] (if (?pred m) ?v m)))
-    ;; k fn val
-    ((m/pred (some-fn keyword? string?) ?k)
-     (m/and ?pred (m/pred fn?)) ?v)
-    (map (fn [m] (if (?pred (get m ?k)) (assoc m ?k ?v) m)))))
+(defmacro aggregate [& arg]
+  (m/rewrite arg
+    ;; ...
+    ;; {& [[!ks !fns] ...]}
+    ({:as ?m})
+    ~(let [acc (gensym 'acc)
+           k   (gensym   'k)
+           v   (gensym   'v)
+           f   (gensym   'f)]
+       `(x/transjuxt
+         ~(reduce-kv
+           (fn [acc k v]
+             (println v)
+             (let [f (m/match v
+                       (m/pred (some-fn list? symbol?) ?v)
+                       ?v
+                       ;;
+                       (m/pred keyword? ?k)
+                       `((agg/agg->fn ~v) ~k)
+                       ;;
+                       [(m/pred keyword ?k) (m/pred keyword? ?f)]
+                       `((agg/agg->fn ~?f) ~?k)
+                       ;;
+                       [(m/pred keyword ?k) (m/pred (some-fn list? symbol?) ?f)]
+                       (comp (map ?k) ?f)
+                       )]
+               (assoc acc k f)))
+           {}
+           ?m)))
+    ;; (x/transjuxt
+    ;;   (persistent!
+    ;;     (reduce-kv
+    ;;       (fn [acc k f]
+    ;;         (let [f (m/match f
+    ;;                   (m/pred fn? ?f)                             ?f
+    ;;                   (m/pred keyword? ?k)                        ((agg->fn ?k) k)
+    ;;                   [(m/pred keyword? ?k) (m/pred keyword? ?f)] ((agg->fn ?f) ?k)
+    ;;                   [(m/pred keyword? ?k) (m/pred fn? ?f)]      (comp (map ?k) ?f))]
+    ;;           (assoc! acc k f)))
+    ;;       (transient {})
+    ;;       ?m)))
+    ;; [!ks !fns ...]]}
+    ;; [(m/pred (some-fn fn? keyword?) !ks) (m/pred (some-fn fn? keyword?) !fns) ...]
+    ;; (x/transjuxt
+    ;;   (persistent!
+    ;;     (reduce
+    ;;       (fn [acc [k f]]
+    ;;         (conj! acc ((agg->fn f) k)))
+    ;;       (transient [])
+    ;;       (m/subst [[!ks !fns] ...]))))
+    ))
 
-(comment
-  (=>> data (replace :a even? :even) (take 3))
-  ;; => [{:a -91, :b 43, :c 7} {:a :even, :b 94, :c -70} {:a :even, :b -69, :c 99}]
-  )
-
-(defn update [& args]
-  (m/match args
-    ;; k fn
-    ((m/pred (some-fn keyword? string?) ?k)
-     (m/and ?f (m/pred fn?)))
-    (map (fn [m] (clojure.core/update m ?k ?f)))
-    ;; k pred fn
-    ((m/pred (some-fn keyword? string?) ?k)
-     (m/and ?pred (m/pred fn?))
-     (m/and ?f (m/pred fn?)))
-    (map (fn [m] (if (?pred (get m ?k)) (clojure.core/update m ?k ?f) m)))
-    ;; {k f}
-    ((m/pred map? ?mfn))
-    (map (fn [m]
-           (persistent!
-             (reduce-kv
-               (fn [acc k v]
-                 (let [f (get ?mfn k)]
-                   (assoc! acc k (cond-> v (identity f) f))))
-               (transient {})
-               m))))))
-
-(comment
-  (=>> data (update :a inc) (take 2))
-  ;; => [{:a 71, :b -13, :c 45} {:a -36, :b 41, :c 45}]
-  (=>> data (update :a even? inc) (take 2))
-  ;; => [{:a 71, :b -13, :c 45} {:a -37, :b 41, :c 45}]
-  (=>> data (update {:a inc}))
-  )
-
-(defn drop [& args]
-  (m/match args
-    ;; none
-    (m/or (m/pred empty?) (m/pred nil?))
-    (map identity)
-    ;; i
-    ((m/pred number? ?x))
-    (clojure.core/drop ?x)
-    ;; i-j
-    ((m/and (m/pred number? ?x)) (m/and (m/pred number? ?y)))
-    (keep-indexed (fn [i m] (when (clojure.core/and (>= i ?x) (< i ?y)) m)))
-    ;; [is]
-    ([(m/and (m/pred number? !ks)) ...])
-    (let [?xs (into #{} !ks)]
-      (keep-indexed (fn [i m] (when-not (contains? ?xs i) m))))
-    ;; ks
-    ((m/pred (some-fn keyword? string?) !ks) ...)
-    (map (fn [m] (apply dissoc m !ks)))
-    ;; [ks]
-    ([(m/pred (some-fn keyword? string?) !ks) ...])
-    (map (fn [m] (apply dissoc m !ks)))
-    ;; fn
-    ((m/pred fn? ?f))
-    (remove ?f)
-    ;; k fn
-    ((m/pred (some-fn keyword? string?) ?k) (m/pred fn? ?f))
-    (remove (fn [m] (?f (get m ?k))))
-    ;; regex
-    ((m/pred #(instance? java.util.regex.Pattern %) ?x) & _)
-    (comp (x/transjuxt [(column-names ?x) (x/into [])])
-          (map (fn [[ks coll]] (=>> coll (drop ks)))))
-    ;; {k f}
-    ((m/pred map? ?mfn))
-    (remove (fn [m] (some (fn [[k f]] (f (get m k))) ?mfn)))))
-
-(comment
-  (do
-    (e/qb 10 (into [] (drop 999995) data))
-    (e/qb 10 (into [] (clojure.core/drop 999995) data))))
-
-(comment
-  (into [] (drop 0 4) (take 5 data)))
-
-(comment
-  (into [] (drop [0 2]) (take 5 data)))
-
-(comment
-  (into [] (drop :a) (take 5 data)))
-
-(comment
-  (into [] (drop :a :b :c :d) (take 5 data)))
-
-(comment
-  (into [] (drop :a neg?) data))
-
-(comment
-  (into [] (drop even?) (range 10)))
-
-(defn dropna [& args]
-  (m/match args
-    (m/pred empty?)
-    (dropna :axis 0)
-    (:axis 0)
-    (filter #(every? identity (vals %)))
-    (:axis 1)
-    (let [vks     (volatile! ::none)
-          drop-ks (volatile! #{})]
-      (comp
-        (x/transjuxt {:ks (comp (take 1) (mapcat keys) (x/into []))
-                      :xs (x/into [])})
-        (mapcat (fn [{:keys [ks xs]}]
-                  (when (identical? @vks ::none)
-                    (vreset! vks ks)
-                    (doseq [k ks]
-                      (when-not (every? identity (map k xs))
-                        (vswap! drop-ks conj k))))
-                  (map (fn [m]
-                         (reduce (fn [acc k]
-                                   (dissoc acc k)) m @drop-ks)) xs)))))))
-
-(comment
-  (into [] (dropna :axis 1) [{:a 1 :b 1} {:a 2 :b nil} {:a 3 :b 3}]))
-
-(comment
-  (into [] (dropna) [{:a 1 :b 1} {:a 2 :b nil} {:a 3 :b 3}]))
-
-(defn fillna [v]
-  (map (fn [m]
-         (persistent!
-           (reduce-kv (fn [acc k val] (if val (assoc! acc k val) (assoc! acc k v))) (transient {}) m)))))
-
-(comment
-  (into [] (fillna 0) [{:a 1 :b 1} {:a 2 :b nil} {:a 3 :b 3}]))
-
-(defn group-by [& args]
-  (println args)
-  (m/match args
-    ;; k f
-    (m/seqable (m/pred (some-fn keyword? fn?) ?f) (m/pred fn? ?xf))
-    (x/by-key ?f ?xf)
-    ;; [k j] f
-    (m/seqable [(m/pred (some-fn keyword? fn?) !fs) ...] (m/pred fn? ?xf))
-    (x/by-key (apply juxt !fs) ?xf)
-    ;; ?f {& [[?k ?f] ...]}
-    (m/seqable (m/pred (some-fn keyword? fn?) ?f) (m/pred map? ?m))
+(defmacro group-by [& args]
+  (m/rewrite args
+    ;; ?k/?f
+    ((m/pred (some-fn list? symbol? keyword?) ?f))
+    (x/by-key ?f (x/into []))
+    ;; ?k/?f ?xf
+    ((m/pred (some-fn list? symbol? keyword?) ?f)
+     (m/pred (some-fn list? symbol?) ?xf))
+    (x/by-key ?f (if (keyword? ?xf) ((agg/agg->fn ?xf) ?f) ?xf))
+    ;; ?k/?f ?agg
+    ((m/pred (some-fn list? symbol? keyword?) ?f)
+     (m/pred keyword? ?agg))
+    (x/by-key ?f ((agg/agg->fn ?agg) ?f))
+    ;; ?k/?f {& [[?k ?f] ...]}
+    ((m/pred (some-fn list? symbol? keyword?) ?f) (m/pred map? ?m))
     (x/by-key ?f (agg/aggregate ?m))
+    ;; [?k ?j] ?xf
+    ([(m/pred (some-fn list? symbol? keyword?) !fs) ...]
+     (m/pred (some-fn list? symbol?) ?xf))
+    (x/by-key ~`(juxt ~@!fs) ?xf)
+    ;; [?k/?f ?j/?f] ?map
+    ([(m/pred (some-fn list? symbol? keyword?) !fs) ...]
+     (m/pred map? ?m))
+    (x/by-key ~`(juxt ~@!fs) (agg/aggregate ?m))
     ;; ?f [[ks fns] ...]
-    (m/seqable (m/pred (some-fn keyword? fn?) ?f) (m/pred vector? ?coll))
+    ((m/pred (some-fn list? symbol? keyword?)?f)
+     (m/pred vector? ?coll))
     (x/by-key ?f (agg/aggregate ?coll))
-    ;; [k j] map
-    (m/seqable [(m/pred (some-fn keyword? fn?) !fs) ...] (m/pred map? ?m))
-    (x/by-key (apply juxt !fs) (agg/aggregate ?m))
     ;; ...
     (?k [!coll ...] '...)
     (comp (group-by ?k (into [?k :first] !coll)) (map second))
-    
+    ;;
     (?k {:as ?m} '...)
     (comp (group-by ?k (assoc ?m ?k :first)) (map second))
     ))
@@ -520,19 +355,19 @@
   (=>> data (group-by :a [:c :sum :b :sum]))
   (=>> data (group-by :a [:c :sum :b :sum] '...))
   (=>> data (x/by-key :a [(comp (map :a) (x/into []))]))
-  [(e/qb 1 (=>> data (group-by :a {:b-mean [:b :mean]
-                                   :b-sum  [:b :sum]
-                                   :c-mean [:c :mean]
-                                   :c-sum  [:c :sum]})))
-   (e/qb 1 (->> data
-                (clojure.core/group-by :a)
-                (mapv (fn [[v coll]]
-                        (let [b-coll (->> coll (mapv :b))
-                              c-coll (->> coll (mapv :c))]
-                          [v {:b-mean (hanse.rostock.stats/mean b-coll)
-                              :b-sum  (->> b-coll (reduce +))
-                              :c-mean (hanse.rostock.stats/mean c-coll)
-                              :c-sum  (->> c-coll (reduce +))}])))))]
+  [(enc/qb 1 (=>> data (group-by :a {:b-mean [:b :mean]
+                                     :b-sum  [:b :sum]
+                                     :c-mean [:c :mean]
+                                     :c-sum  [:c :sum]})))
+   (enc/qb 1 (->> data
+                  (clojure.core/group-by :a)
+                  (mapv (fn [[v coll]]
+                          (let [b-coll (->> coll (mapv :b))
+                                c-coll (->> coll (mapv :c))]
+                            [v {:b-mean (hanse.rostock.stats/mean b-coll)
+                                :b-sum  (->> b-coll (reduce +))
+                                :c-mean (hanse.rostock.stats/mean c-coll)
+                                :c-sum  (->> c-coll (reduce +))}])))))]
   ;; => [515.28 531.06])
   )
 
@@ -761,4 +596,3 @@
 
 (comment
   (into [] (tail) data))
-

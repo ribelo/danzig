@@ -51,6 +51,9 @@
 (defn covariance [k]
   (map->rfs k (stats/covariance)))
 
+(defn flatten [k]
+  (map->rfs k (mapcat identity)))
+
 (defn into-vec [k]
   (map->rfs k (x/into [])))
 
@@ -66,8 +69,8 @@
 (defn round2 [k]
   (map->rfs k (map math/round2)))
 
-(defn agg->fn [f]
-  (m/match f
+(defn agg->fn [k]
+  (m/match k
     :first           first
     :last            last
     :min             min
@@ -82,33 +85,12 @@
     :iqr             iqr
     :variance        variance
     :covariance      covariance
+    :flatten         flatten
     :into-vec        into-vec
     :into-map        into-map
     :into-set        into-set
-    (m/pred fn? ?fn) ?fn))
 
-(defn aggregate [arg]
-  (m/match arg
-    ;; {& [[!ks !fns] ...]}
-    {:as ?m}
-    (x/transjuxt
-      (persistent!
-        (reduce-kv
-          (fn [acc k f]
-            (let [f (m/match f
-                      (m/pred fn? ?f)                             ?f
-                      (m/pred keyword? ?k)                        ((agg->fn ?k) k)
-                      [(m/pred keyword? ?k) (m/pred keyword? ?f)] ((agg->fn ?f) ?k)
-                      [(m/pred keyword? ?k) (m/pred fn? ?f)]      (comp (map ?k) ?f))]
-              (assoc! acc k f)))
-          (transient {})
-          ?m)))
-    ;; [!ks !fns ...]]}
-    [(m/pred (some-fn fn? keyword?) !ks) (m/pred (some-fn fn? keyword?) !fns) ...]
-    (x/transjuxt
-      (persistent!
-        (reduce
-          (fn [acc [k f]]
-            (conj! acc ((agg->fn f) k)))
-          (transient [])
-          (m/subst [[!ks !fns] ...]))))))
+    (m/pred keyword? ?k) (map ?k)
+
+    (m/pred (some-fn fn? list? symbol?) ?fn)
+    ?fn))

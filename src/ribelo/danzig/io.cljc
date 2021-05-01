@@ -3,7 +3,7 @@
    [net.cgrand.xforms :as x]
    #?(:clj [net.cgrand.xforms.io :as xio])
    #?(:clj [java-time :as jt])
-   [hanse.danzig :as dz :refer [=>> vecs->maps comp-some]]
+   [ribelo.danzig :as dz :refer [=>> vecs->maps comp-some]]
    [meander.epsilon :as m]
    [clojure.string :as str]))
 

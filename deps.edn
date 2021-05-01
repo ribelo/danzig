@@ -1,8 +1,11 @@
 {:paths ["src"]
  :deps  {net.cgrand/xforms                   {:mvn/version "0.19.2"}
          clojure.java-time/clojure.java-time {:mvn/version "0.3.2"}
-         meander/epsilon                     {:mvn/version "0.0.588"}
+         meander/epsilon                     {:mvn/version "0.0.602"}
          ribelo/kemnath                      {:git/url "https://github.com/ribelo/kemnath"
                                               :sha     "7fae2514a43c3de07a5a173319a9ee7065989dcf"}
          ribelo/stade                        {:git/url "https://github.com/ribelo/stade"
-                                              :sha     "5b01e968203d6d12e710ed5aef266f36e0588089"}}}
+                                              :sha     "5b01e968203d6d12e710ed5aef266f36e0588089"}
+         ;; ribelo/kemnath                      {:local/root "../kemnath"}
+         ;; ribelo/stade                        {:local/root "../stade"}
+         }}

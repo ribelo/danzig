@@ -1,0 +1,240 @@
+#+TITLE: danzig
+
+a easy-to-use transducer based data analysis tools for the clojure programming
+language.
+
+* rationale
+
+any finitely complicated problem can be made infinitely complicated by a finite
+number of macros, so why not write macros that write (macro based)meander code that would generate transducers functions?
+
+...wait, but why not just use a meander?
+
+because =meander.epsilon/scan= is slow, and because transducers are super
+composable and can be combined into endless sequences
+
+* usage examples
+
+#+begin_src clojure :results silent :exports code
+(require '[taoensso.encore :as enc])
+(require '[ribelo.danzig :as dz :refer [=>>]])
+
+(def data (vec (repeatedly 1000000 (fn [] {:a (* (rand-int 100) (if (enc/chance 0.5) 1 -1))
+                                          :b (* (rand-int 100) (if (enc/chance 0.5) 1 -1))
+                                          :c (* (rand-int 100) (if (enc/chance 0.5) 1 -1))}))))
+#+end_src
+
+
+** fat arrow
+
+the most important function is the fat arrow which replaces the tread last
+#+begin_src clojure :results silent :exports code
+
+(=>> [1 2 3 4 5]
+     (map inc)
+     (filter even?))
+;; => [2 4 6]
+
+(macroexpand '(=>> [1 2 3 4 5] (map inc) (filter even?)))
+;; => (clojure.core/into [] (ribelo.danzig/comp-some (map inc) (filter even?)) [1 2 3 4 5])
+
+(=>> [1 2 3 4 5]
+     (map inc)
+     (when false
+       (filter even?)))
+;; => [2 3 4 5 6]
+
+#+end_src
+
+fatty arrows can be mixed with other arrows
+#+begin_src clojure :results silent :exports code
+
+(=>> [1 2 3 4 5]
+     (map inc)
+     (->> (mapv inc)))
+;; => [3 4 5 6 7]
+
+#+end_src
+
+you can also use first and last
+#+begin_src clojure :results silent :exports code
+
+(=>> [1 2 3 4 5]
+     (map inc)
+     first)
+;; => 2
+
+(=>> [1 2 3 4 5]
+     (map inc)
+     (last))
+;; => 6
+#+end_src
+
+** where
+
+where can take the function
+#+begin_src clojure :results silent :exports code
+
+(=>> data
+     (dz/where (fn [{:keys [a]}] (= a 1)))
+     (take 1))
+;; => [{:a 1, :b 87, :c -27}]
+
+#+end_src
+
+the assumption is that we have a collection of maps, so we can query the key value
+#+begin_src clojure :results silent :exports code
+
+(=>> data (dz/where :a 1) (take 1))
+;; => [{:a 1, :b 87, :c -27}]
+
+#+end_src
+
+if we need to search for a key, we must use '
+#+begin_src clojure :results silent :exports code
+
+(=>> [{:a :some/key} {:a :other/key}] (dz/where [= :a ':other/key]))
+;; => [{:a :other/key}]
+
+#+end_src
+
+or keys
+#+begin_src clojure :results silent :exports code
+
+(=>> data (dz/where {:a 1 :b 1}) (take 1))
+;; => [{:a 1, :b 1, :c 74}]
+
+#+end_src
+
+or keys and functions
+#+begin_src clojure :results silent :exports code
+
+(=>> data (dz/where {:a even? :b odd?}) (take 1))
+;; => [{:a 40, :b 39, :c -76}]
+
+#+end_src
+
+we can use a vector, where the first argument is the function
+#+begin_src clojure :results silent :exports code
+
+(=>> data (dz/where [= :a :b :c]) (take 1))
+;; => [{:a 27, :b 27, :c 27}]
+(=>> data (dz/where [= :a 1]) (take 1))
+;; => [{:a 1, :b 87, :c -27}]
+
+#+end_src
+
+ask for the key that meets the condition
+#+begin_src clojure :results silent :exports code
+
+(=>> data (dz/where even? :a) (take 1))
+;; => [{:a -96, :b -84, :c -76}]
+
+(=>> data (dz/where :a even?) (take 1))
+;; => [{:a -96, :b -84, :c -76}]
+
+#+end_src
+
+square clojure is still clojure
+#+begin_src clojure :results silent :exports code
+
+(=>> data (dz/where [= [+ :a :b] :c]) (take 1))
+;; => [{:a 0, :b 2, :c 2}]
+(=>> data (dz/where [= [+ :a :b] [+ :c :a]]) (take 1))
+;; => [{:a 75, :b -43, :c -43}]
+
+#+end_src
+
+meander just works
+#+begin_src clojure :results silent :exports code :ns ribelo.danzig
+
+(=>> data (dz/where {:a ?x :b ?x :c ?x}) (take 1))
+;; => [{:a -32, :b -32, :c -32}]
+
+(require '[meander.epsilon :as m])
+(=>> data (dz/where {:a (m/pred pos?)}) (take 1))
+;; => [{:a 92, :b -64, :c -96}]
+
+#+end_src
+
+and there is almost no overhead
+#+begin_src clojure :results silent :exports code
+
+(enc/qb 1
+  (=>> data (filter (fn [{:keys [a]}] (= a 1))))
+  (=>> data (filter (fn [m] (= 1 (:a m)))))
+  (=>> data (dz/where :a 1))
+  (=>> data (dz/where {:a 1})))
+;; => [72.85 41.23 43.09] - in ms
+
+#+end_src
+
+** set
+
+you can change an individual value in n elements
+#+begin_src clojure :results silent :exports code
+
+(=>> data (dz/set 0 :a 999) (take 1))
+;; => [{:a 999, :b 23, :c 32}]
+
+#+end_src
+
+a map can be used
+#+begin_src clojure :results silent :exports code
+
+(=>> data (dz/set 0 {:a 999 :b -999}) (take 1))
+;; => [{:a 999, :b -999, :c 32}]
+
+#+end_src
+
+function
+#+begin_src clojure :results silent :exports code
+
+(=>> data (dz/set :d (fn [{:keys [a b]}] (+ a b 10))) (take 1))
+;; => [{:a 24, :b 23, :c 32, :d 57}]
+
+#+end_src
+
+square clojure still behaves like clojure
+#+begin_src clojure :results silent :exports code
+
+(=>> data (dz/set :d [+ :a :b [- :c 10]]) (take 1))
+;; => [{:a 92, :b -64, :c -96, :d -78}]
+
+#+end_src
+
+a whole column can be added
+#+begin_src clojure :results silent :exports code
+
+(=>> data (dz/set :d 5) (take 3))
+;; => [{:a 24, :b 23, : c 32, :d 5}
+;;     {:a 53, :b 69, :c -99, :d 5}
+;;     {:a -4, :b 80, :c -16, :d 5}]
+
+#+end_src
+
+many things in one go
+#+begin_src clojure :results silent :exports code
+
+(=>> data (dz/set {:a 5 :b 10}))
+
+(=>> data (dz/set {:a [+ :a 1] :b [+ :b 5]}))
+#+end_src
+
+conditional set
+#+begin_src clojure :results silent :exports code
+
+(=>> data
+     (dz/set 0 :a -999)
+     (dz/set :when [= :a -999] {:a 999 :b 999 :c 999})
+     (dz/where :a 999)
+     (dz/row-count))
+;; => [1]
+
+#+end_src
+
+** aggregate
+
+** group-by
+
+** io
