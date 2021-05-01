@@ -25,9 +25,41 @@ composable and can be combined into endless sequences
 #+end_src
 
 
+** why you should care?
+
+because it is super concise and pleasing to the eye
+
+#+begin_src clojure :results silent :exports code
+
+(defn q1 []
+  (->> data
+       (into []
+             (comp
+              (map (fn [{:keys [a b] :as m}] (assoc m :d (+ a b))))
+              (filter (fn [{:keys [c]}] (pos? c)))
+              (map (fn [m] (update m :a inc)))
+              (filter (fn [{:keys [a b c]}] (= a b c)))))))
+
+(defn q2 []
+  (=>> data
+       (dz/set :d [+ :a :b])
+       (dz/where :c pos?)
+       (dz/set :a [+ :a 1])
+       (dz/where [= :a :b :c])))
+
+#+end_src
+
+because it is much faster than handwritten code
+
+#+begin_src clojure :results silent :exports code
+(enc/qb 1 (q1) (q2))
+;; => [309.46 145.71] - in ms
+#+end_src
+
+
 ** fat arrow
 
-the most important function is the fat arrow which replaces the tread last
+the most basic function is the fat arrow which replaces the tread last
 #+begin_src clojure :results silent :exports code
 
 (=>> [1 2 3 4 5]
