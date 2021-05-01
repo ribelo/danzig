@@ -171,7 +171,7 @@ and there is almost no overhead
 
 ** set
 
-you can change an individual value in n elements
+you can change an individual value at =i= element
 #+begin_src clojure :results silent :exports code
 
 (=>> data (dz/set 0 :a 999) (take 1))
@@ -216,9 +216,11 @@ a whole column can be added
 many things in one go
 #+begin_src clojure :results silent :exports code
 
-(=>> data (dz/set {:a 5 :b 10}))
+(=>> data (dz/set {:a 5 :b 10}) (take 1))
+;; => [{:a 5, :b 10, :c -69}]
 
-(=>> data (dz/set {:a [+ :a 1] :b [+ :b 5]}))
+(=>> data (dz/set {:a [+ :a 1000] :b [+ :b 1000]}) (take 1))
+;; => [{:a 927, :b 905, :c -69}]
 #+end_src
 
 conditional set
@@ -234,7 +236,8 @@ conditional set
 #+end_src
 
 ** aggregate
-
+wip
 ** group-by
-
+wip
 ** io
+wip
