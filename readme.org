@@ -80,7 +80,7 @@ the most basic function is the fat arrow which replaces the tread last
 
 #+end_src
 
-fatty arrows can be mixed with other arrows
+fat arrows can be mixed with other arrows
 #+begin_src clojure :results silent :exports code
 
 (=>> [1 2 3 4 5]
