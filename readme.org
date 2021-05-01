@@ -47,6 +47,8 @@ because it is super concise and pleasing to the eye
        (dz/set :a [+ :a 1])
        (dz/where [= :a :b :c])))
 
+(= (q1) (q2))
+;; => true
 #+end_src
 
 because it is much faster than handwritten code
