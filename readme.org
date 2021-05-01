@@ -90,7 +90,7 @@ the assumption is that we have a collection of maps, so we can query the key val
 
 #+end_src
 
-if we need to search for a key, we must use '
+if we need to search for a key, we must use ='=
 #+begin_src clojure :results silent :exports code
 
 (=>> [{:a :some/key} {:a :other/key}] (dz/where [= :a ':other/key]))
