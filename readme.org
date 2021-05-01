@@ -165,7 +165,7 @@ and there is almost no overhead
   (=>> data (filter (fn [m] (= 1 (:a m)))))
   (=>> data (dz/where :a 1))
   (=>> data (dz/where {:a 1})))
-;; => [72.85 41.23 43.09] - in ms
+;; => [81.88 54.14 48.77 52.16]
 
 #+end_src
 
