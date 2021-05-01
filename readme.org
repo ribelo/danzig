@@ -32,13 +32,13 @@ because it is super concise and pleasing to the eye
 #+begin_src clojure :results silent :exports code
 
 (defn q1 []
-  (->> data
-       (into []
-             (comp
-              (map (fn [{:keys [a b] :as m}] (assoc m :d (+ a b))))
-              (filter (fn [{:keys [c]}] (pos? c)))
-              (map (fn [m] (update m :a inc)))
-              (filter (fn [{:keys [a b c]}] (= a b c)))))))
+  (into []
+        (comp
+         (map (fn [{:keys [a b] :as m}] (assoc m :d (+ a b))))
+         (filter (fn [{:keys [c]}] (pos? c)))
+         (map (fn [m] (update m :a inc)))
+         (filter (fn [{:keys [a b c]}] (= a b c))))
+        data))
 
 (defn q2 []
   (=>> data
