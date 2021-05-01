@@ -20,8 +20,8 @@ composable and can be combined into endless sequences
 (require '[ribelo.danzig :as dz :refer [=>>]])
 
 (def data (vec (repeatedly 1000000 (fn [] {:a (* (rand-int 100) (if (enc/chance 0.5) 1 -1))
-                                          :b (* (rand-int 100) (if (enc/chance 0.5) 1 -1))
-                                          :c (* (rand-int 100) (if (enc/chance 0.5) 1 -1))}))))
+                                           :b (* (rand-int 100) (if (enc/chance 0.5) 1 -1))
+                                           :c (* (rand-int 100) (if (enc/chance 0.5) 1 -1))}))))
 #+end_src
 
 
