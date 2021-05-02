@@ -159,7 +159,6 @@
 (defmacro where [& args]
   `(filter (where* ~@args)))
 
-
 (defmacro where-not [& args]
   `(remove (where* ~@args)))
 
@@ -203,7 +202,7 @@
 (defn rename-columns [m]
   (map #(clojure.set/rename-keys % m)))
 
-(defmacro set* [& args]
+(defmacro with* [& args]
   (m/rewrite args
     ;; ?i ?k ?v
     ((m/pred integer? ?i) (m/pred keyword? ?k) ?v)
@@ -233,7 +232,7 @@
                                        ?x ?x)) !args)))))
     ;; {?k [?f . !ks]}
     ((m/and ?m (m/map-of (m/pred keyword? !ks) (m/pred vector? !args))))
-    ~`(comp ~@(map (fn [[k v]] `(set* ~k ~v)) ?m))
+    ~`(comp ~@(map (fn [[k v]] `(with* ~k ~v)) ?m))
     ;; {?k ?v}
     ((m/and ?m (m/map-of (m/pred keyword? !ks)
                          (m/not (m/pred (some-fn vector? list? symbol?) !vs)))))
@@ -247,16 +246,16 @@
           (-> ~m ~@(map (fn [[k f]] `(assoc ~k (~f ~m))) ?m))))
     ;; :when ?pred ?x
     (:when ?pred & ?rest)
-    ~`(fn [m#] (if ((where* ~?pred) m#) ((set* ~@?rest) m#) m#))
+    ~`(fn [m#] (if ((where* ~?pred) m#) ((with* ~@?rest) m#) m#))
     ;;
     _ (throw (ex-info "non exhaustive pattern match" {}))))
 
-(defmacro set [& args]
+(defmacro with [& args]
   (m/rewrite args
     ((m/pred number?) & _)
-    ~`(map-indexed (set* ~@args))
+    ~`(map-indexed (with* ~@args))
     _
-    ~`(map (set* ~@args))))
+    ~`(map (with* ~@args))))
 
 (defmacro aggregate [& arg]
   (m/rewrite arg
