@@ -191,7 +191,7 @@ meander just works
 
 #+end_src
 
-and there is almost no overhead
+is as fast as the fine-tuned hand-written code
 #+begin_src clojure :results silent :exports code
 
 (enc/qb 1
