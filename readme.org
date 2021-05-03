@@ -42,9 +42,9 @@ because it is super concise and pleasing to the eye
 
 (defn q2 []
   (=>> data
-       (dz/set :d [+ :a :b])
+       (dz/with :d [+ :a :b])
        (dz/where :c pos?)
-       (dz/set :a [+ :a 1])
+       (dz/with :a [+ :a 1])
        (dz/where [= :a :b :c])))
 
 (= (q1) (q2))
@@ -203,12 +203,12 @@ and there is almost no overhead
 
 #+end_src
 
-** set
+** with
 
 you can change an individual value at =i= element
 #+begin_src clojure :results silent :exports code
 
-(=>> data (dz/set 0 :a 999) (take 1))
+(=>> data (dz/with 0 :a 999) (take 1))
 ;; => [{:a 999, :b 23, :c 32}]
 
 #+end_src
@@ -216,7 +216,7 @@ you can change an individual value at =i= element
 a map can be used
 #+begin_src clojure :results silent :exports code
 
-(=>> data (dz/set 0 {:a 999 :b -999}) (take 1))
+(=>> data (dz/with 0 {:a 999 :b -999}) (take 1))
 ;; => [{:a 999, :b -999, :c 32}]
 
 #+end_src
@@ -224,7 +224,7 @@ a map can be used
 function
 #+begin_src clojure :results silent :exports code
 
-(=>> data (dz/set :d (fn [{:keys [a b]}] (+ a b 10))) (take 1))
+(=>> data (dz/with :d (fn [{:keys [a b]}] (+ a b 10))) (take 1))
 ;; => [{:a 24, :b 23, :c 32, :d 57}]
 
 #+end_src
@@ -232,7 +232,7 @@ function
 square clojure still behaves like clojure
 #+begin_src clojure :results silent :exports code
 
-(=>> data (dz/set :d [+ :a :b [- :c 10]]) (take 1))
+(=>> data (dz/with :d [+ :a :b [- :c 10]]) (take 1))
 ;; => [{:a 92, :b -64, :c -96, :d -78}]
 
 #+end_src
@@ -240,7 +240,7 @@ square clojure still behaves like clojure
 a whole column can be added
 #+begin_src clojure :results silent :exports code
 
-(=>> data (dz/set :d 5) (take 3))
+(=>> data (dz/with :d 5) (take 3))
 ;; => [{:a 24, :b 23, : c 32, :d 5}
 ;;     {:a 53, :b 69, :c -99, :d 5}
 ;;     {:a -4, :b 80, :c -16, :d 5}]
@@ -250,19 +250,19 @@ a whole column can be added
 many things in one go
 #+begin_src clojure :results silent :exports code
 
-(=>> data (dz/set {:a 5 :b 10}) (take 1))
+(=>> data (dz/with {:a 5 :b 10}) (take 1))
 ;; => [{:a 5, :b 10, :c -69}]
 
-(=>> data (dz/set {:a [+ :a 1000] :b [+ :b 1000]}) (take 1))
+(=>> data (dz/with {:a [+ :a 1000] :b [+ :b 1000]}) (take 1))
 ;; => [{:a 927, :b 905, :c -69}]
 #+end_src
 
-conditional set
+conditional with
 #+begin_src clojure :results silent :exports code
 
 (=>> data
-     (dz/set 0 :a -999)
-     (dz/set :when [= :a -999] {:a 999 :b 999 :c 999})
+     (dz/with 0 :a -999)
+     (dz/with :when [= :a -999] {:a 999 :b 999 :c 999})
      (dz/where :a 999)
      (dz/row-count))
 ;; => [1]
